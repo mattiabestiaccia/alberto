@@ -57,7 +57,7 @@ Lo scenario (`EXCITE_scenario.py`) simula una missione di 24 ore con le seguenti
 - `EXCITE_Dynamics.py`: Configurazione del modello fisico e dinamico del satellite (BSKDynamicModels).
 - `EXCITE_Fsw.py`: Configurazione degli algoritmi di bordo (BSKFswModels) e della macchina a stati (FSM).
 - `EXCITE_Plotting.py`: Modulo per la generazione dei grafici di analisi (non incluso in questo elenco ma referenziato).
-- `EXCITE_Analysis.py`: Modulo per l'analisi numerica dei risultati (non incluso in questo elenco ma referenziato).
+
 - `SMEKF.c` / `questAttDet.c`: Implementazioni C degli algoritmi di navigazione (se presenti come moduli custom).
 
 ## Requisiti

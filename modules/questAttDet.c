@@ -17,6 +17,33 @@
 
  */
 
+/*
+ * questAttDet.c - Algoritmo QUEST per determinazione assetto da osservazioni vettoriali
+ *
+ * Questo modulo implementa l'algoritmo QUEST (QUaternion ESTimator) per la determinazione
+ * statica dell'assetto di un satellite. QUEST risolve il "problema di Wahba": data una serie
+ * di vettori misurati in terna Body e i corrispondenti vettori di riferimento in terna Inerziale,
+ * calcola la matrice di rotazione (e il quaternione) ottimi che minimizzano l'errore pesato.
+ *
+ * Input utilizzati:
+ * - Direzione Sole in terna Body (da simpleNavObject.vehSunPntBdy)
+ * - Direzione Sole in terna Inerziale (da ephemerisConverter - posizione Sole)
+ * - Campo magnetico in terna Body (da magnetometro TAM)
+ * - Campo magnetico in terna Inerziale (da modello WMM)
+ *
+ * Output:
+ * - Quaternione ottimo q_BN (Body to Inertial)
+ * - Parametri MRP sigma_BN
+ *
+ * Algoritmo:
+ * 1. Costruisce la matrice di profilo attitudinale B = sum(w_i * v_i * w_i^T)
+ * 2. Risolve l'equazione caratteristica per trovare l'autovalore massimo lambda_max
+ * 3. Calcola il quaternione ottimo come autovettore corrispondente a lambda_max
+ *
+ * Nota: QUEST è sensibile alla qualità dei vettori di input. Se i due vettori (Sole e Mag)
+ * sono troppo allineati (quasi paralleli), la soluzione diventa instabile.
+ */
+
 #include "questAttDet.h"
 #include <string.h>
 #include <math.h>
@@ -24,15 +51,15 @@
 #include "architecture/utilities/rigidBodyKinematics.h"
 #include "architecture/utilities/macroDefinitions.h"
 
-/* Helper functions are declared in the header file */
+/* Le funzioni helper sono dichiarate nel file header */
 
 /*!
  \verbatim embed:rst
-    This method initializes the module output message of type :ref:`NavAttMsgPayload`
+    Inizializza il messaggio di output del modulo di tipo :ref:`NavAttMsgPayload`
  \endverbatim
 
- @param configData The configuration data associated with this module
- @param moduleID The module identifier
+ @param configData Dati di configurazione del modulo
+ @param moduleID Identificatore del modulo
  */
 void SelfInit_questAttDet(questAttDetConfig *configData, int64_t moduleID)
 {
@@ -40,17 +67,17 @@ void SelfInit_questAttDet(questAttDetConfig *configData, int64_t moduleID)
 }
 
 
-/*! This method performs a complete reset of the module. Local module variables that retain
- time varying states between function calls are reset to their default values.
+/*! Esegue un reset completo del modulo. Le variabili locali che mantengono stati variabili
+ nel tempo tra le chiamate vengono resettate ai loro valori di default.
 
- @param configData The configuration data associated with the module
- @param callTime The clock time at which the function was called (nanoseconds)
- @param moduleID The module identifier
+ @param configData Dati di configurazione del modulo
+ @param callTime Tempo della chiamata in nanosecondi
+ @param moduleID Identificatore del modulo
  */
 void Reset_questAttDet(questAttDetConfig *configData, uint64_t callTime, int64_t moduleID)
 {
-    /* Set default parameters if not already configured */
-    /* Note: lambda0 = 0.0 means use adaptive method with previous quaternion */
+    /* Imposta i parametri di default se non già configurati */
+    /* Nota: lambda0 = 0.0 significa usare metodo adattivo con quaternione precedente */
     if (configData->sunWeight == 0.0) {
         configData->sunWeight = 1.0;
     }
@@ -107,30 +134,30 @@ void Reset_questAttDet(questAttDetConfig *configData, uint64_t callTime, int64_t
     }
 }
 
-/*! This method implements the QUEST algorithm for attitude determination from vector observations.
- It computes the optimal quaternion that minimizes Wahba's loss function.
+/*! Implementa l'algoritmo QUEST per la determinazione dell'assetto da osservazioni vettoriali.
+ Calcola il quaternione ottimo che minimizza la funzione di loss di Wahba.
 
- @param configData The configuration data associated with the module
- @param callTime The clock time at which the function was called (nanoseconds)
- @param moduleID The module identifier
+ @param configData Dati di configurazione del modulo
+ @param callTime Tempo della chiamata in nanosecondi
+ @param moduleID Identificatore del modulo
  */
 void Update_questAttDet(questAttDetConfig *configData, uint64_t callTime, int64_t moduleID)
 {
-    /* Vector observations in body frame */
+    /* Osservazioni vettoriali in terna Body */
     double v[QUEST_MAX_VECTORS][3];
-    /* Reference vectors in inertial frame */
+    /* Vettori di riferimento in terna Inerziale */
     double w[QUEST_MAX_VECTORS][3];
-    /* Weights for each observation */
+    /* Pesi per ogni osservazione */
     double weights[QUEST_MAX_VECTORS];
 
-    /* QUEST algorithm matrices and parameters */
-    double B[3][3];                 /* Attitude profile matrix */
+    /* Matrici e parametri dell'algoritmo QUEST */
+    double B[3][3];                 /* Matrice di profilo attitudinale */
     double S[3][3];                 /* S = B + B^T */
     double z[3];                    /* z = sum(a_i * (v_i x w_i)) */
-    double sigma, kappa, delta;     /* K-matrix parameters */
-    double a, b, c, d;              /* Characteristic equation coefficients */
-    double lambda_max;              /* Maximum eigenvalue */
-    double q_BN[4];                 /* Optimal quaternion (scalar-first format) */
+    double sigma, kappa, delta;     /* Parametri della matrice K */
+    double a, b, c, d;              /* Coefficienti equazione caratteristica */
+    double lambda_max;              /* Autovalore massimo */
+    double q_BN[4];                 /* Quaternione ottimo (formato scalar-first) */
 
     NavAttMsgPayload outputAtt;
     NavAttMsgPayload sunlineBuffer;

@@ -3,6 +3,30 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+from Basilisk.utilities import macros
+from Basilisk.utilities import orbitalMotion
+from Basilisk.utilities import RigidBodyKinematics
+
+
+def plot_rw_angular_velocities(timeData, rwSpeeds, phaseMarkers, eclipseData, figNum=9,
+                                add_gs_windows_func=None, add_sweep_markers_func=None):
+    """
+    Traccia le velocità angolari delle ruote di reazione per tutte e 4 le ruote.
+
+    Args:
+        timeData: Array del tempo [ore]
+        rwSpeeds: Velocità delle RW [rad/s] (array N x 4)
+        phaseMarkers: Dizionario con i tempi delle fasi [ore]
+        eclipseData: Periodi di eclissi (opzionale, può essere None)
+        figNum: Numero della figura
+        add_gs_windows_func: Funzione per aggiungere finestre di accesso GS al grafico (opzionale)
+        add_sweep_markers_func: Funzione per aggiungere marker di inizio sweep al grafico (opzionale)
+    """
+    plt.figure(figNum, figsize=(14, 10))
+
+    # Convert rad/s to RPM for better readability
+    rwSpeeds_rpm = rwSpeeds * 60.0 / (2.0 * np.pi)
+
     wheelLabels = ['RW1', 'RW2', 'RW3', 'RW4']
     wheelColors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']  # Blue, Orange, Green, Red
 
