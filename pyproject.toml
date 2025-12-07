@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "excite-aocs"
 version = "1.0.0"
 description = "EXCITE CubeSat 12U AOCS Simulation using Basilisk"
-authors = [{name = "Alberto Bruschi", email = "alberto.bruschi@example.com"}]
+authors = [{name = "Alberto Bruschi", email = "bruscia95@gmail.com"}]
 license = {text = "MIT"}
 readme = "README.md"
 requires-python = ">=3.8"
