@@ -8,7 +8,7 @@ La simulazione include modelli dinamici dettagliati, algoritmi di volo (FSW) ava
 
 ### Dinamica (Dynamics)
 
-Il modello dinamico (`EXCITE_Dynamics.py`) simula l'ambiente spaziale e l'hardware del satellite:
+Il modello dinamico (`excite/dynamics/spacecraft_model.py`) simula l'ambiente spaziale e l'hardware del satellite:
 
 - **Ambiente**: Gravità (Terra, Sole, Luna), Gradiente di gravità, Resistenza atmosferica (modello esponenziale), Pressione di radiazione solare (SRP), Disturbo magnetico residuo.
 - **Attuatori**:
@@ -17,15 +17,15 @@ Il modello dinamico (`EXCITE_Dynamics.py`) simula l'ambiente spaziale e l'hardwa
   - Propulsore chimico H2O2 (UniPi IOD) per manovre orbitali.
   - 4 Pannelli solari dispiegabili.
 - **Sensori**:
-  - Star Tracker.
+  - Star Tracker (0.01° accuracy).
   - Sensori Solari Grossolani (CSS).
   - Magnetometro (TAM).
-  - IMU (Giroscopi con bias drift).
+  - IMU Custom (Giroscopi con bias drift).
   - GPS/GNSS (simulato via SimpleNav).
 
 ### Software di Volo (FSW)
 
-Il software di volo (`EXCITE_Fsw.py`) implementa la logica di controllo e navigazione:
+Il software di volo (`excite/fsw/fsw_model.py`) implementa la logica di controllo e navigazione:
 
 - **Navigazione**:
   - **QUEST**: Determinazione d'assetto statica (Vettori Sole + Mag).
@@ -41,37 +41,204 @@ Il software di volo (`EXCITE_Fsw.py`) implementa la logica di controllo e naviga
 
 ### Fasi della Missione
 
-Lo scenario (`EXCITE_scenario.py`) simula una missione di 24 ore con le seguenti fasi:
+Lo scenario (`excite/scenario/scenario.py`) simula una missione di 24 ore con le seguenti fasi:
 
-1.  **Detumbling**: Stabilizzazione iniziale con B-dot.
-2.  **Deployment**: Dispiegamento pannelli solari.
+1.  **Deployment**: Dispiegamento pannelli solari (60s).
+2.  **Detumbling**: Stabilizzazione iniziale con B-dot (fino a 12h).
 3.  **Sun-Safe**: Puntamento pannelli verso il Sole.
-4.  **GS Pointing**: Puntamento antenna S-band verso la Ground Station di Pisa.
-5.  **Payload Mode A**: Esperimento ReconfANT (Puntamento asse X).
-6.  **Payload Mode B**: Esperimento GPU IoT (Puntamento asse -X).
-7.  **Imaging Mode**: Puntamento Nadir per acquisizione immagini (Camera IM200).
+4.  **Initial Charge**: Ricarica batteria (1h).
+5.  **Payload Mode A**: Esperimento ReconfANT (2h).
+6.  **Payload Mode B**: Esperimento GPU IoT (1.5h).
+7.  **GS Contact**: Puntamento antenna S-band verso Ground Station di Pisa.
 
-## Struttura dei File
+## Struttura del Progetto
 
-- `EXCITE_scenario.py`: Script principale per eseguire la simulazione. Configura lo scenario, gestisce il loop di simulazione e genera i grafici.
-- `EXCITE_Dynamics.py`: Configurazione del modello fisico e dinamico del satellite (BSKDynamicModels).
-- `EXCITE_Fsw.py`: Configurazione degli algoritmi di bordo (BSKFswModels) e della macchina a stati (FSM).
-- `EXCITE_Plotting.py`: Modulo per la generazione dei grafici di analisi (non incluso in questo elenco ma referenziato).
-
-- `SMEKF.c` / `questAttDet.c`: Implementazioni C degli algoritmi di navigazione (se presenti come moduli custom).
+```
+umb_v2/
+├── README.md                       # Questo file
+├── CLAUDE.md                       # Guida per Claude Code
+├── pyproject.toml                  # Build configuration (PEP 517/518)
+├── CMakeLists.txt                  # Build system per moduli C
+├── requirements.txt                # Dipendenze Python
+├── requirements-dev.txt            # Dipendenze sviluppo
+│
+├── excite/                         # Package Python principale
+│   ├── __init__.py
+│   ├── __main__.py                 # Entry point: python -m excite
+│   │
+│   ├── config/                     # Parametri configurazione
+│   │   ├── spacecraft.py           # Massa, inerzia, geometria
+│   │   ├── actuators.py            # RW, MTB, thruster specs
+│   │   ├── sensors.py              # Star Tracker, IMU, TAM, CSS
+│   │   ├── mission.py              # Orbita, timeline, IC
+│   │   ├── control.py              # Guadagni controllori
+│   │   ├── environment.py          # Gravità, atmosfera, SRP
+│   │   └── constants.py            # Costanti fisiche
+│   │
+│   ├── dynamics/                   # Modelli dinamici
+│   │   └── spacecraft_model.py     # BSKDynamicModels
+│   │
+│   ├── fsw/                        # Flight Software
+│   │   └── fsw_model.py            # BSKFswModels + FSM
+│   │
+│   ├── scenario/                   # Scenario execution
+│   │   └── scenario.py             # scenario_EXCITE class
+│   │
+│   ├── analysis/                   # Post-processing
+│   │   └── plotting.py             # Grafici performance
+│   │
+│   └── utils/                      # Utility
+│
+├── excite_c_modules/               # Moduli C custom
+│   ├── CMakeLists.txt
+│   ├── src/
+│   │   ├── SMEKF.c                 # Sequential Multiplicative EKF
+│   │   └── questAttDet.c           # QUEST attitude determination
+│   └── include/                    # Header files (se necessari)
+│
+├── scripts/                        # Script eseguibili
+│   └── run_simulation.py           # Main entry point
+│
+├── docs/                           # Documentazione
+│   ├── 0_context.md                # Architettura e contesto
+│   ├── SMEKF_Code.txt              # Note implementazione SMEKF
+│   └── refactoring_plan.md         # Piano di riorganizzazione
+│
+├── examples/                       # Esempi d'uso (futuro)
+│
+├── data/                           # Output simulazione (non versionato)
+│   ├── plots/                      # Grafici generati
+│   └── telemetry/                  # Dati telemetrici
+│
+└── simulation/                     # File originali (legacy, per riferimento)
+    ├── EXCITE_scenario.py
+    ├── EXCITE_Dynamics.py
+    ├── EXCITE_Fsw.py
+    └── EXCITE_Plotting.py
+```
 
 ## Requisiti
 
-- Python 3.x
-- [Basilisk](http://hanspeterschaub.info/basilisk) framework
-- NumPy, Matplotlib
+### Prerequisiti
+
+- Python 3.8+
+- [Basilisk Framework](http://hanspeterschaub.info/basilisk) 2.0+
+- CMake 3.18+ (per build moduli C)
+- C compiler (gcc/clang)
+
+### Installazione
+
+1. **Clona il repository**:
+```bash
+git clone <repository-url>
+cd umb_v2
+```
+
+2. **Installa dipendenze Python**:
+```bash
+pip install -r requirements.txt
+```
+
+3. **Build moduli C** (opzionale - se disponibili):
+```bash
+cd excite_c_modules
+mkdir build && cd build
+cmake ..
+make
+sudo make install  # Installa in Python site-packages
+```
 
 ## Esecuzione
 
-Per avviare la simulazione:
+### Metodo 1: Script dedicato (consigliato)
 
 ```bash
+# Simulazione completa 24 ore
+python scripts/run_simulation.py
+
+# Simulazione breve per test
+python scripts/run_simulation.py --duration 2.0 --plots
+
+# Con grafici
+python scripts/run_simulation.py --plots
+```
+
+### Metodo 2: Entry point Python module
+
+```bash
+# Esecuzione standard
+python -m excite
+
+# Con opzioni
+python -m excite --duration 6.0 --plots
+```
+
+### Metodo 3: Diretto (legacy)
+
+```bash
+# Usa ancora i vecchi file in simulation/
+cd simulation
 python3 EXCITE_scenario.py
 ```
 
-La simulazione genererà log in console relativi agli eventi di missione (transizioni di modo, eclissi, ecc.) e produrrà grafici delle performance AOCS al termine.
+## Output
+
+La simulazione genera:
+- **Console logs**: Eventi missione (transizioni FSM, eclissi, ecc.)
+- **Grafici** (se abilitati): Performance AOCS
+  - Attitude error (MRP)
+  - Angular velocity
+  - RW speeds
+  - Control torques
+  - Battery/Power
+- **Telemetria** (futuro): File CSV in `data/telemetry/`
+
+## Configurazione
+
+Tutti i parametri sono centralizzati in `excite/config/`:
+
+- **Modifica massa satellite**: Edit `excite/config/spacecraft.py` → `TOTAL_MASS_KG`
+- **Tuning controllori**: Edit `excite/config/control.py` → `MRP_STEERING_K1`, `RATE_SERVO_P`, etc.
+- **Cambio orbita**: Edit `excite/config/mission.py` → `ORBITAL_ELEMENTS`
+- **Timeline missione**: Edit `excite/config/mission.py` → `MISSION_DURATION_HOURS`, durate fasi
+
+## Documentazione
+
+- **Architettura completa**: `docs/0_context.md`
+- **Piano refactoring**: `docs/refactoring_plan.md`
+- **Guida Claude Code**: `CLAUDE.md`
+- **Basilisk Docs**: http://hanspeterschaub.info/basilisk
+
+## Sviluppo
+
+### Setup ambiente di sviluppo
+
+```bash
+pip install -r requirements-dev.txt
+```
+
+### Struttura modulare
+
+Il progetto è organizzato come Python package con:
+- Configurazioni separate dal codice
+- Import espliciti da `excite.config.*`
+- Compatibilità con Basilisk BSKSim/BSKScenario
+- Build system per moduli C via CMake
+
+## Stato Attuale
+
+- ✅ Fase 1: Struttura base creata
+- ✅ Fase 2: Configurazioni estratte (7 moduli config)
+- ✅ Fase 3: Moduli Python migrati
+- ⏳ Fase 4: Build C modules e testing
+- ⏳ Fase 5: Documentazione completa
+
+I file originali in `simulation/` sono preservati per riferimento fino al completamento della validazione.
+
+## Licenza
+
+MIT
+
+## Autori
+
+Alberto Bruschi - Università di Pisa
