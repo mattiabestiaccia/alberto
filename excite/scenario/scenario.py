@@ -27,18 +27,14 @@ bskPath = __path__[0]
 filename = inspect.getframeinfo(inspect.currentframe()).filename
 path = os.path.dirname(os.path.abspath(filename))
 
-# Importa le classi master di Basilisk: classe base di simulazione e classe base dello scenario
-# bskPath punta a dist3/Basilisk, risaliamo fino alla root e poi andiamo in examples
-basiliskRoot = os.path.dirname(os.path.dirname(bskPath))
-sys.path.append(basiliskRoot + '/examples/BskSim')
-sys.path.append(basiliskRoot + '/examples/BskSim/models')
-sys.path.append(basiliskRoot + '/examples/BskSim/plotting')
-from BSK_masters import BSKSim, BSKScenario
+# Import EXCITE utilities (BSK_masters and BSK_Plotting)
+from excite.utilities.BSK_masters import BSKSim, BSKScenario
+from excite.utilities import BSK_Plotting as BSK_plt
+
 # Import EXCITE modules from new structure
 from excite.dynamics import spacecraft_model as EXCITE_Dynamics
 from excite.fsw import fsw_model as EXCITE_Fsw
 from excite.analysis import plotting as EXCITE_Plotting
-import BSK_Plotting as BSK_plt
 
 # Import EXCITE configuration
 from excite.config import mission as miss_config
@@ -251,19 +247,19 @@ class scenario_EXCITE(BSKSim, BSKScenario):
         self.msgRecList['dragTorqueLog'] = DynModel.dragEffector.logger("torqueExternalPntB_B", samplingTime)
         self.AddModelToTask(DynModel.taskName, self.msgRecList['dragTorqueLog'])
 
-        # Magnetic disturbance torque
-        self.msgRecList['magDistTorqueLog'] = DynModel.magDistTorque.logger("torqueExternalPntB_B", samplingTime)
-        self.AddModelToTask(DynModel.taskName, self.msgRecList['magDistTorqueLog'])
+        # Magnetic disturbance torque logging DISABLED (magDistTorque module disabled)
+        # self.msgRecList['magDistTorqueLog'] = DynModel.magDistTorque.logger("torqueExternalPntB_B", samplingTime)
+        # self.AddModelToTask(DynModel.taskName, self.msgRecList['magDistTorqueLog'])
 
         # 7. Battery state of charge
         self.msgRecList['batteryMsg'] = DynModel.battery.batPowerOutMsg.recorder(samplingTime)
         self.AddModelToTask(DynModel.taskName, self.msgRecList['batteryMsg'])
 
-        # 8. MTB power consumption (3 magnetorquers)
-        for i in range(3):
-            msgName = f'mtbPower{i+1}Msg'
-            self.msgRecList[msgName] = DynModel.mtbPowerList[i].nodePowerOutMsg.recorder(samplingTime)
-            self.AddModelToTask(DynModel.taskName, self.msgRecList[msgName])
+        # 8. MTB power consumption DISABLED (MTB power modules disabled)
+        # for i in range(3):
+        #     msgName = f'mtbPower{i+1}Msg'
+        #     self.msgRecList[msgName] = DynModel.mtbPowerList[i].nodePowerOutMsg.recorder(samplingTime)
+        #     self.AddModelToTask(DynModel.taskName, self.msgRecList[msgName])
 
         # 9. Eclipse status (for solar panel power generation analysis)
         # The eclipse module has multiple output messages (one per celestial body)
@@ -286,16 +282,16 @@ class scenario_EXCITE(BSKSim, BSKScenario):
         # NOTE: GS access monitoring is handled by FSM events
         # No need to record GS messages (avoids uninitialized message warnings)
 
-        # 12. IMU Custom sensor data (gyro measurements + bias)
-        self.msgRecList['imuSensorMsg'] = DynModel.IMUCustom.sensorOutMsg.recorder(samplingTime)
-        self.AddModelToTask(DynModel.taskName, self.msgRecList['imuSensorMsg'])
+        # 12. IMU Custom sensor data DISABLED (IMUCustom module disabled)
+        # self.msgRecList['imuSensorMsg'] = DynModel.IMUCustom.sensorOutMsg.recorder(samplingTime)
+        # self.AddModelToTask(DynModel.taskName, self.msgRecList['imuSensorMsg'])
 
-        self.msgRecList['imuBiasMsg'] = DynModel.IMUCustom.biasOutMsg.recorder(samplingTime)
-        self.AddModelToTask(DynModel.taskName, self.msgRecList['imuBiasMsg'])
+        # self.msgRecList['imuBiasMsg'] = DynModel.IMUCustom.biasOutMsg.recorder(samplingTime)
+        # self.AddModelToTask(DynModel.taskName, self.msgRecList['imuBiasMsg'])
 
-        # 13. QUEST attitude determination output
-        self.msgRecList['questAttMsg'] = FswModel.questModule.navStateOutMsg.recorder(samplingTime)
-        self.AddModelToTask(DynModel.taskName, self.msgRecList['questAttMsg'])
+        # 13. QUEST attitude determination output DISABLED (questModule disabled)
+        # self.msgRecList['questAttMsg'] = FswModel.questModule.navStateOutMsg.recorder(samplingTime)
+        # self.AddModelToTask(DynModel.taskName, self.msgRecList['questAttMsg'])
 
         # NOTE: sunlineEphem recorder removed - QUEST now uses simpleNavObject.attOutMsg.vehSunPntBdy directly
 

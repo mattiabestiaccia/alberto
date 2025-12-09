@@ -57,10 +57,8 @@ Lo scenario (`excite/scenario/scenario.py`) simula una missione di 24 ore con le
 umb_v2/
 ├── README.md                       # Questo file
 ├── CLAUDE.md                       # Guida per Claude Code
+├── LICENSE                         # MIT License
 ├── pyproject.toml                  # Build configuration (PEP 517/518)
-├── CMakeLists.txt                  # Build system per moduli C
-├── requirements.txt                # Dipendenze Python
-├── requirements-dev.txt            # Dipendenze sviluppo
 │
 ├── excite/                         # Package Python principale
 │   ├── __init__.py
@@ -87,34 +85,39 @@ umb_v2/
 │   ├── analysis/                   # Post-processing
 │   │   └── plotting.py             # Grafici performance
 │   │
-│   └── utils/                      # Utility
+│   ├── utilities/                  # Basilisk utilities
+│   │   ├── BSK_masters.py          # BSKSim, BSKScenario base classes
+│   │   └── BSK_Plotting.py         # Plot utilities
+│   │
+│   └── utils/                      # General utilities
 │
-├── excite_c_modules/               # Moduli C custom
-│   ├── CMakeLists.txt
+├── excite_c_modules/               # Moduli C custom (disabilitati)
 │   ├── src/
 │   │   ├── SMEKF.c                 # Sequential Multiplicative EKF
 │   │   └── questAttDet.c           # QUEST attitude determination
-│   └── include/                    # Header files (se necessari)
+│   └── include/                    # Header files
 │
 ├── scripts/                        # Script eseguibili
-│   └── run_simulation.py           # Main entry point
+│   └── run_simulation.py           # Main CLI entry point
 │
-├── docs/                           # Documentazione
+├── docs/                           # Documentazione tecnica
 │   ├── 0_context.md                # Architettura e contesto
 │   ├── SMEKF_Code.txt              # Note implementazione SMEKF
 │   └── refactoring_plan.md         # Piano di riorganizzazione
 │
-├── examples/                       # Esempi d'uso (futuro)
+├── old_codes/                      # File originali legacy (riferimento)
+│   ├── EXCITE_scenario.py          # Scenario originale
+│   ├── EXCITE_Dynamics.py          # Dynamics originale
+│   ├── EXCITE_Fsw.py               # FSW originale
+│   └── EXCITE_Plotting.py          # Plotting originale
 │
-├── data/                           # Output simulazione (non versionato)
-│   ├── plots/                      # Grafici generati
-│   └── telemetry/                  # Dati telemetrici
+├── tests/                          # Test suite
+│   ├── conftest.py                 # Pytest configuration
+│   └── test_simulation.py          # Simulation tests
 │
-└── simulation/                     # File originali (legacy, per riferimento)
-    ├── EXCITE_scenario.py
-    ├── EXCITE_Dynamics.py
-    ├── EXCITE_Fsw.py
-    └── EXCITE_Plotting.py
+└── data/                           # Output simulazione (non versionato)
+    ├── plots/                      # Grafici generati
+    └── telemetry/                  # Dati telemetrici
 ```
 
 ## Requisiti

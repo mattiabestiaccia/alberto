@@ -17,28 +17,6 @@
 
  */
 
-/*
- * SMEKF.c - Sequential Multiplicative Extended Kalman Filter per determinazione assetto
- *
- * Questo modulo implementa un filtro di Kalman esteso moltiplicativo sequenziale per la stima
- * dell'assetto di un satellite. Il filtro fonde misure da:
- * - IMU (giroscopi) per la propagazione dello stato
- * - Star Tracker (misure ad alta precisione dell'assetto)
- * - QUEST (determinazione assetto da vettori Sole + Magnetometro)
- *
- * Vettore di stato (6 elementi):
- * - delta_theta (3): Errore di assetto in parametri MRP
- * - bias (3): Bias dei giroscopi
- *
- * Il filtro usa una formulazione moltiplicativa per l'assetto (quaternioni) e
- * una formulazione additiva per il bias.
- *
- * Algoritmo:
- * 1. Propagazione temporale con IMU (predizione)
- * 2. Update sequenziale con misure disponibili (correzione)
- * 3. Reset della parte moltiplicativa (proiezione su manifold)
- */
-
 #include "fswAlgorithms/attDetermination/SMEKF/SMEKF.h"
 #include "architecture/utilities/linearAlgebra.h"
 #include "architecture/utilities/rigidBodyKinematics.h"
@@ -46,9 +24,9 @@
 #include <string.h>
 #include <math.h>
 
-/*! Inizializza i messaggi di output per il filtro SMEKF.
-    @param configData Dati di configurazione del stimatore SMEKF
-    @param moduleID Identificatore del modulo
+/*! This method initializes the output messages for the SMEKF filter.
+    @param configData The configuration data associated with the SMEKF estimator
+    @param moduleID The module identifier
  */
 void SelfInit_SMEKF(SMEKFConfig *configData, int64_t moduleID)
 {
@@ -56,38 +34,38 @@ void SelfInit_SMEKF(SMEKFConfig *configData, int64_t moduleID)
     InertialFilterMsg_C_init(&configData->filtDataOutMsg);
 }
 
-/*! Resetta il filtro SMEKF a uno stato iniziale e inizializza le matrici interne di stima.
-    @param configData Dati di configurazione del stimatore SMEKF
-    @param callTime Tempo della chiamata in nanosecondi
-    @param moduleID Identificatore del modulo
+/*! This method resets the SMEKF filter to an initial state and initializes the internal estimation matrices.
+    @param configData The configuration data associated with the SMEKF estimator
+    @param callTime The clock time at which the function was called (nanoseconds)
+    @param moduleID The module identifier
  */
 void Reset_SMEKF(SMEKFConfig *configData, uint64_t callTime, int64_t moduleID)
 {
-    /* Verifica che i messaggi di input richiesti siano connessi */
+    /* Check if required input messages are connected */
     if (!IMUSensorMsg_C_isLinked(&configData->imuSensorInMsg)) {
         _bskLog(configData->bskLogger, BSK_ERROR, "Error: SMEKF.imuSensorInMsg wasn't connected.");
     }
 
-    /* Inizializza il timing */
+    /* Initialize timing */
     configData->timeTag = callTime * NANO2SEC;
     configData->firstRun = 1;
 
-    /* Inizializza output diagnostici */
+    /* Initialize diagnostic outputs */
     configData->numMeas = 0;
     configData->numIterations = 0;
 
-    /* Inizializza vettori di stato a zero */
+    /* Initialize state vectors to zero */
     v4SetZero(configData->quat_BN);
     v3SetZero(configData->bias);
     v3SetZero(configData->omega_BN_B);
     mSetZero(configData->covar, SMEKF_N_STATES, SMEKF_N_STATES);
 
-    /* Copia le condizioni iniziali se fornite, altrimenti usa i default */
+    /* Copy initial conditions if provided, otherwise use defaults */
     if (v4Norm(configData->quat_BN_init) > 0.1) {
         v4Copy(configData->quat_BN_init, configData->quat_BN);
         SMEKF_normalizeQuaternion(configData->quat_BN);
     } else {
-        /* Default: quaternione identità */
+        /* Default to identity quaternion */
         configData->quat_BN[0] = 1.0;
         configData->quat_BN[1] = 0.0;
         configData->quat_BN[2] = 0.0;
@@ -162,11 +140,11 @@ void Reset_SMEKF(SMEKFConfig *configData, uint64_t callTime, int64_t moduleID)
     return;
 }
 
-/*! Implementa il loop principale di aggiornamento del filtro SMEKF.
-    Esegue la propagazione temporale usando i dati IMU e gli update sequenziali delle misure usando QUEST e Star Tracker.
-    @param configData Dati di configurazione del stimatore SMEKF
-    @param callTime Tempo della chiamata in nanosecondi
-    @param moduleID Identificatore del modulo
+/*! This method implements the main update loop for the SMEKF filter.
+    It performs time propagation using IMU data and sequential measurement updates using QUEST and Star Tracker.
+    @param configData The configuration data associated with the SMEKF estimator
+    @param callTime The clock time at which the function was called (nanoseconds)
+    @param moduleID The module identifier
  */
 void Update_SMEKF(SMEKFConfig *configData, uint64_t callTime, int64_t moduleID)
 {

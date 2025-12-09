@@ -1,26 +1,3 @@
-"""
-EXCITE_Fsw.py - Software di volo (FSW) del satellite EXCITE
-
-Questo modulo implementa tutti gli algoritmi di bordo che girano sull'On-Board Computer (OBC):
-- Navigazione: QUEST (determinazione assetto statica), SMEKF (filtro Kalman esteso moltiplicativo)
-- Guida: Sun-safe pointing, Ground Station pointing, Nadir pointing, Payload pointing
-- Controllo: MRP Steering (anello esterno), Rate Servo (anello interno), B-dot (detumbling)
-- Gestione momento angolare: Desaturazione RW tramite MTB
-- Macchina a stati finiti (FSM): Gestione automatica delle fasi di missione
-
-Algoritmi di controllo:
-- Anello esterno: MRP Steering con limitazione velocità angolare
-- Anello interno: Rate Servo per inseguimento velocità
-- B-dot controller: Per stabilizzazione iniziale (detumbling)
-
-Algoritmi di navigazione:
-- QUEST: Determinazione assetto da 2 vettori (Sole + Campo magnetico)
-- SMEKF: Fusione ottima di Star Tracker, IMU e QUEST
-
-Classe principale:
-- BSKFswModels: Configura e gestisce tutti i moduli FSW e la logica FSM
-"""
-
 import numpy as np
 from Basilisk import __path__
 from Basilisk.architecture import messaging
@@ -40,115 +17,106 @@ bskPath = __path__[0]
 
 
 class BSKFswModels:
-    """
-    Classe che gestisce il Flight Software (FSW) di EXCITE
-
-    Implementa:
-    - Algoritmi di Guida, Navigazione e Controllo (GNC)
-    - Macchina a stati finiti (FSM) per gestione autonoma della missione
-    - Gestione momento angolare (desaturazione RW)
-    - Logica di detumbling e pointing
-    """
+    """Defines the EXCITE FSW class with detumbling and momentum management"""
     def __init__(self, SimBase, fswRate):
-        """
-        Inizializza i modelli FSW
+        # define empty class variables
+        self.vcMsg = None
+        self.fswRwConfigMsg = None
+        self.cmdTorqueMsg = None
+        self.cmdTorqueFilteredMsg = None  # Filtered torque command for RW
+        self.cmdTorqueDirectMsg = None
+        self.attRefMsg = None
+        self.attGuidMsg = None
+        self.cmdRwMotorMsg = None
+        self.mtbConfigMsg = None
+        self.dipoleGatewayMsg = None  # Gateway for MTB dipole commands
 
-        Args:
-            SimBase: Riferimento alla simulazione base
-            fswRate: Frequenza di aggiornamento FSW [s]
-        """
-        # Definisce variabili di classe vuote (messaggi di output)
-        self.vcMsg = None  # Messaggio virtual constellation (non usato)
-        self.fswRwConfigMsg = None  # Configurazione RW per FSW
-        self.cmdTorqueMsg = None  # Coppia comandata (output rateServo)
-        self.cmdTorqueFilteredMsg = None  # Coppia comandata filtrata per RW
-        self.cmdTorqueDirectMsg = None  # Coppia comandata diretta (non filtrata)
-        self.attRefMsg = None  # Riferimento di assetto
-        self.attGuidMsg = None  # Guida di assetto (errore tracking)
-        self.cmdRwMotorMsg = None  # Comando motori RW
-        self.mtbConfigMsg = None  # Configurazione MTB
-        self.dipoleGatewayMsg = None  # Gateway per comandi dipolo MTB
-
-        # Generazione comandi random basata su FSM (sistema semplificato)
+        # FSM-based Random Command Generation (simplified system)
         self.availableCommands = [
-            'imagingMode',  # Modo imaging (nadir pointing)
-            'GSPoint',  # Comunicazione ground station
-            'payloadModeA_ReconfANT',  # Esperimento ReconfANT
-            'payloadModeB_GPUIOT'  # Esperimento GPU IoT
+            'imagingMode',
+            'GSPoint',  # gs_communication
+            'payloadModeA_ReconfANT',  # reconfant_experiment
+            'payloadModeB_GPUIOT'  # gpu_experiment
         ]
-        self.currentCommand = None  # Comando attualmente generato (in attesa di accesso GS)
-        self.commandGenInterval_min = 3.0 * 60.0  # Intervallo generazione minimo: 3 ore [min]
-        self.commandGenInterval_max = 4.0 * 60.0  # Intervallo generazione massimo: 4 ore [min]
-        self.lastCommandGenTime = None  # Ultimo tempo generazione comando [ns]
-        self.nextCommandGenTime = None  # Prossimo tempo programmato generazione comando [ns]
+        self.currentCommand = None  # Currently generated command (waiting for GS access)
+        self.commandGenInterval_min = 3.0 * 60.0  # 3 hours in minutes (minimum)
+        self.commandGenInterval_max = 4.0 * 60.0  # 4 hours in minutes (maximum)
+        self.lastCommandGenTime = None  # Last time a command was generated (nanoseconds)
+        self.nextCommandGenTime = None  # Next scheduled command generation time (nanoseconds)
 
-        # Definisce nome processo e time-step di default per tutti i task FSW
+        # Define process name and default time-step for all FSW tasks defined later on
         self.processName = SimBase.FSWProcessName
         self.processTasksTimeStep = mc.sec2nano(fswRate)
 
-        # ===== Crea i moduli FSW =====
-
-        # Moduli di guida (Guidance)
-        self.sunSafePoint = sunSafePoint.sunSafePoint()  # Puntamento sun-safe (pannelli verso Sole)
+        # Create module data and module wraps
+        # Sun-safe pointing guidance
+        self.sunSafePoint = sunSafePoint.sunSafePoint()
         self.sunSafePoint.ModelTag = "sunSafePoint"
 
-        self.PisaGroundStation = groundLocation.GroundLocation()  # Posizione GS Pisa
+        self.PisaGroundStation = groundLocation.GroundLocation()
         self.PisaGroundStation.ModelTag = "PisaGroundStation"
 
-        self.PisaGSPointing = locationPointing.locationPointing()  # Puntamento verso GS Pisa
+        self.PisaGSPointing = locationPointing.locationPointing()
         self.PisaGSPointing.ModelTag = "PisaGSPointing"
 
-        self.nadirPointing = locationPointing.locationPointing()  # Puntamento nadir (asse Y camera verso Terra)
+        # Nadir pointing for imaging mode (points camera Y-axis toward Earth center)
+        self.nadirPointing = locationPointing.locationPointing()
         self.nadirPointing.ModelTag = "nadirPointing"
 
-        # Stima direzione Sole (per sun-safe pointing)
-        self.cssWlsEst = cssWlsEst.cssWlsEst()  # Stima WLS da CSS
+        self.cssWlsEst = cssWlsEst.cssWlsEst()
         self.cssWlsEst.ModelTag = "cssWlsEst"
 
-        self.sunlineEphem = sunlineEphem.sunlineEphem()  # Direzione Sole da effemeridi (alternativa a CSS)
+        # Sun line ephemeris-based (alternative to CSS WLS)
+        self.sunlineEphem = sunlineEphem.sunlineEphem()
         self.sunlineEphem.ModelTag = "sunlineEphem"
 
-        self.ephemConverter = ephemerisConverter.EphemerisConverter()  # Convertitore SPICE -> Ephemeris
+        # Ephemeris converter (SPICE -> Ephemeris message for sunlineEphem)
+        self.ephemConverter = ephemerisConverter.EphemerisConverter()
         self.ephemConverter.ModelTag = "ephemConverter"
 
-        # Modulo errore tracking assetto (usato in sunSafePointTask)
+        # Attitude tracking error (used in sunSafePointTask)
         self.trackingError = attTrackingError.attTrackingError()
         self.trackingError.ModelTag = "trackingError"
 
-        # Moduli di controllo (Control)
-        self.mrpSteering = mrpSteering.mrpSteering()  # MRP Steering (anello esterno - limitazione velocità)
+        # MRP Steering (outer loop - rate limiting)
+        self.mrpSteering = mrpSteering.mrpSteering()
         self.mrpSteering.ModelTag = "mrpSteering"
 
-        self.rateServo = rateServoFullNonlinear.rateServoFullNonlinear()  # Rate Servo (anello interno - tracking velocità)
+        # Rate Servo (inner loop - rate tracking)
+        self.rateServo = rateServoFullNonlinear.rateServoFullNonlinear()
         self.rateServo.ModelTag = "rateServo"
 
-        self.rwMotorTorque = rwMotorTorque.rwMotorTorque()  # Coppia motori RW
+        # RW motor torque
+        self.rwMotorTorque = rwMotorTorque.rwMotorTorque()
         self.rwMotorTorque.ModelTag = "rwMotorTorque"
 
-        self.rwNullSpace = rwNullSpace.rwNullSpace()  # Controllo null space RW
+        # RW null space controller
+        self.rwNullSpace = rwNullSpace.rwNullSpace()
         self.rwNullSpace.ModelTag = "rwNullSpace"
 
-        self.b_dot_controller = B_dot_controller_C.B_dot_controller_C()  # Controllore B-dot per detumbling
+        # B-dot controller for detumbling
+        self.b_dot_controller = B_dot_controller_C.B_dot_controller_C()
         self.b_dot_controller.ModelTag = "B_dot_Controller"
 
-        # Moduli gestione momento angolare (Momentum Management)
-        self.mtbMomentumManagement = mtbMomentumManagementSimple.mtbMomentumManagementSimple()  # Desaturazione RW con MTB
+        # Momentum management modules
+        self.mtbMomentumManagement = mtbMomentumManagementSimple.mtbMomentumManagementSimple()
         self.mtbMomentumManagement.ModelTag = "mtbMomentumManagementSimple"
 
-        self.torque2Dipole = torque2Dipole.torque2Dipole()  # Conversione coppia -> dipolo MTB
+        self.torque2Dipole = torque2Dipole.torque2Dipole()
         self.torque2Dipole.ModelTag = "torque2Dipole"
 
-        self.dipoleMapping = dipoleMapping.dipoleMapping()  # Mapping dipolo per momentum management
+        self.dipoleMapping = dipoleMapping.dipoleMapping()
         self.dipoleMapping.ModelTag = "dipoleMapping"
 
-        self.dipoleMappingBdot = dipoleMapping.dipoleMapping()  # Mapping dipolo separato per B-dot
+        # Separate dipole mapping for B-dot controller
+        self.dipoleMappingBdot = dipoleMapping.dipoleMapping()
         self.dipoleMappingBdot.ModelTag = "dipoleMappingBdot"
 
-        self.lpFilter = lowPassFilterTorqueCommand.lowPassFilterTorqueCommand()  # Filtro passa-basso coppia
+        self.lpFilter = lowPassFilterTorqueCommand.lowPassFilterTorqueCommand()
         self.lpFilter.ModelTag = "lpFilter"
 
-        # Moduli di navigazione (Navigation)
-        self.questModule = questAttDet.questAttDet()  # QUEST (determinazione assetto statica)
+        # QUEST Attitude Determination module
+        self.questModule = questAttDet.questAttDet()
         self.questModule.ModelTag = "questAttDet"
 
         # SMEKF Navigation Filter module

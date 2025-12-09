@@ -82,6 +82,7 @@ MTB_AXIS_Z = np.array([0.0, 0.0, 1.0])  # MTB lungo asse Z
 # Consumo energetico MTB
 MTB_POWER_MAX_W = 1.0     # W - potenza massima per MTB
 MTB_POWER_NOMINAL_W = 0.5 # W - potenza nominale
+MTB_POWER_STANDBY_W = 0.05  # W - potenza in standby
 MTB_VOLTAGE_V = 5.0       # V - tensione operativa
 
 # Resistenza elettrica
@@ -139,6 +140,6 @@ POWER_MANEUVER_W = (THRUSTER_POWER_STEADY_W +
                     NUM_MTB * MTB_POWER_STANDBY_W)  # ~7.5 W
 
 # Standby mode
-MTB_POWER_STANDBY_W = 0.05  # W per MTB
+# MTB_POWER_STANDBY_W defined above
 POWER_STANDBY_W = (NUM_RW * RW_POWER_STANDBY_W +
                    NUM_MTB * MTB_POWER_STANDBY_W)  # ~0.55 W

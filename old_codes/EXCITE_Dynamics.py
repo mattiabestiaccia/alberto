@@ -9,7 +9,7 @@ from Basilisk.simulation import (spacecraft, extForceTorque, simpleNav, simpleBa
                                  GravityGradientEffector, facetDragDynamicEffector, facetSRPDynamicEffector,
                                  exponentialAtmosphere, magneticFieldWMM,
                                  MtbEffector, reactionWheelStateEffector, imuSensor, magnetometer, coarseSunSensor, starTracker, eclipse)
-from Basilisk.simulation import thrusterStateEffector, ReactionWheelPower, hingedRigidBodyStateEffector, svIntegrators
+from Basilisk.simulation import thrusterStateEffector, ReactionWheelPower, MtbPower, hingedRigidBodyStateEffector, svIntegrators
 from Basilisk.utilities import RigidBodyKinematics as rbk
 from Basilisk.utilities import macros as mc
 from Basilisk.utilities import simIncludeRW, simIncludeGravBody, simSetPlanetEnvironment
@@ -112,10 +112,23 @@ class BSKDynamicModels():
         SimBase.AddModelToTask(self.taskName, self.ggEff, 197)
         SimBase.AddModelToTask(self.taskName, self.SRPEffector, 197)
         SimBase.AddModelToTask(self.taskName, self.dragEffector, 197)
-        # self.magDistTorque = ...  # DISABLED: task add below also disabled
+        SimBase.AddModelToTask(self.taskName, self.magDistTorque, 197)
         SimBase.AddModelToTask(self.taskName, self.eclipseObject, 107)  # MUST execute BEFORE CSS
         SimBase.AddModelToTask(self.taskName, self.simpleNavObject, 109)
         SimBase.AddModelToTask(self.taskName, self.extForceTorqueObject, 300)
+        SimBase.AddModelToTask(self.taskName, self.rwStateEffector, 301)
+        SimBase.AddModelToTask(self.taskName, self.mtbEffector, 301)
+        SimBase.AddModelToTask(self.taskName, self.thrusterStateEffector, 301)  # H2O2 chemical thruster
+        SimBase.AddModelToTask(self.taskName, self.CSSConstellationObject, 108)
+        SimBase.AddModelToTask(self.taskName, self.StarTracker, 108)
+        SimBase.AddModelToTask(self.taskName, self.IMU, 108)  # Replaced by IMUCustom
+        SimBase.AddModelToTask(self.taskName, self.IMUCustom, 108)  # Custom IMU with bias drift
+        SimBase.AddModelToTask(self.taskName, self.TAM, 196)  # TAM executes AFTER magModule (magModule=198, TAM=196)
+        SimBase.AddModelToTask(self.taskName, self.tamComm, 195)  # tamComm executes AFTER TAM to convert sensor frame to body frame
+        SimBase.AddModelToTask(self.taskName, self.cameraIM200, 108)  # Camera sensor
+        SimBase.AddModelToTask(self.taskName, self.battery, 195)
+        SimBase.AddModelToTask(self.taskName, self.powersink, 195)
+        # Add all 4 solar panel deployment effectors FIRST (higher priority) so they write messages before solar panels read them
         for deploy_panel in self.deployPanelList:
             SimBase.AddModelToTask(self.taskName, deploy_panel, 196)  # MUST execute BEFORE solar panels
         # Add all 4 solar panels to main task (power generation disabled initially via efficiency=0)
@@ -125,9 +138,9 @@ class BSKDynamicModels():
         # Add all 4 RW power modules to task
         for powerRW in self.rwPowerList:
             SimBase.AddModelToTask(self.taskName, powerRW, 195)
-        # Add all 3 MTB power modules to task - DISABLED: MtbPower not available
-        # for powerMTB in self.mtbPowerList:
-        #     SimBase.AddModelToTask(self.taskName, powerMTB, 195)
+        # Add all 3 MTB power modules to task
+        for powerMTB in self.mtbPowerList:
+            SimBase.AddModelToTask(self.taskName, powerMTB, 195)
 
         # The RWs Faults are here commented for the moment. They will be added in the future, assessing the task of the FDIR creation.
 
@@ -880,9 +893,9 @@ class BSKDynamicModels():
         for powerRW in self.rwPowerList:
             self.battery.addPowerNodeToModel(powerRW.nodePowerOutMsg)
 
-        # Connect all 3 MTB power modules to battery - DISABLED: MtbPower not available
-        # for powerMTB in self.mtbPowerList:
-        #     self.battery.addPowerNodeToModel(powerMTB.nodePowerOutMsg)
+        # Connect all 3 MTB power modules to battery
+        for powerMTB in self.mtbPowerList:
+            self.battery.addPowerNodeToModel(powerMTB.nodePowerOutMsg)
 
     def SetReactionWheelPower(self):
         """Set the reaction wheel power consumption modules for the 4 CW0162 RWs"""

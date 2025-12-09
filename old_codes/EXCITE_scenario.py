@@ -1,20 +1,4 @@
-"""
-EXCITE_scenario.py - Script principale per la simulazione del satellite EXCITE
-
-Questo modulo orchestrer la simulazione completa del sistema AOCS (Attitude and Orbital Control System)
-per il satellite EXCITE (CubeSat 12U). Gestisce:
-- Configurazione delle condizioni iniziali orbitali e di assetto
-- Loop di simulazione con gestione degli eventi FSM
-- Logging dei messaggi per l'analisi dei dati
-- Generazione dei grafici di performance
-
-Architettura:
-- scenario_EXCITE: Classe principale che eredita da BSKSim e BSKScenario
-- runScenario(): Esegue la missione di 24 ore con transizioni automatiche FSM
-- run(): Entry point per l'esecuzione della simulazione
-"""
-
-# Ottieni il percorso del file corrente
+# Get current file path
 import inspect
 import os
 import sys
@@ -27,84 +11,75 @@ bskPath = __path__[0]
 filename = inspect.getframeinfo(inspect.currentframe()).filename
 path = os.path.dirname(os.path.abspath(filename))
 
-# Importa le classi master di Basilisk: classe base di simulazione e classe base dello scenario
-# bskPath punta a dist3/Basilisk, risaliamo fino alla root e poi andiamo in examples
+# Import master classes: simulation base class and scenario base class
+# bskPath points to dist3/Basilisk, need to go up to basilisk root then to examples
 basiliskRoot = os.path.dirname(os.path.dirname(bskPath))
 sys.path.append(basiliskRoot + '/examples/BskSim')
 sys.path.append(basiliskRoot + '/examples/BskSim/models')
 sys.path.append(basiliskRoot + '/examples/BskSim/plotting')
 from BSK_masters import BSKSim, BSKScenario
-import EXCITE_Dynamics, EXCITE_Fsw, EXCITE_Plotting
+import EXCITE_Dynamics, EXCITE_Fsw, EXCITE_Analysis, EXCITE_Plotting
 import BSK_Plotting as BSK_plt
 
-# Classe scenario EXCITE (eredita da BSKSim e BSKScenario)
+# Create your own scenario child class
 class scenario_EXCITE(BSKSim, BSKScenario):
     def __init__(self):
-        """
-        Inizializzazione dello scenario EXCITE
-
-        Configura i rate di esecuzione, le variabili di stato FSM e i modelli dinamici/FSW.
-        IMPORTANTE: fswRate deve essere <= dynRate per garantire che i messaggi siano
-        scritti dalla Dinamica PRIMA di essere letti dall'FSW.
-        """
-        # CRITICAL: Imposta rate FSW uguale al rate Dynamics (entrambi 0.1s = 10Hz)
-        # Questo garantisce che Dynamics scriva i messaggi PRIMA che FSW li legga
-        # fswRate = 0.1s (10Hz), dynRate = 0.1s (10Hz)
+        # CRITICAL FIX: Set FSW rate slower than Dynamics rate
+        # This ensures Dynamics always writes messages BEFORE FSW reads them
+        # fswRate = 0.2s (5Hz), dynRate = 0.1s (10Hz)
         super(scenario_EXCITE, self).__init__(fswRate=0.1, dynRate=0.1)
         self.name = 'scenario_EXCITE'
 
-        # Configurazione specifica EXCITE
-        # CRITICAL: Timeout di backup per la fine del detumbling (FSM event autoTransitionToSunSafe)
-        self.detumblingEndTime = macros.hour2nano(12)  # 12 ore fase di detumbling (timeout di backup)
+        # EXCITE-specific configuration
+        # CRITICAL: Set detumbling end time for FSM event autoTransitionToSunSafe
+        self.detumblingEndTime = macros.hour2nano(12)  # 12 hours detumbling phase (backup timeout)
 
-        # Inizializza la richiesta di modo FSM (usata dagli eventi in EXCITE_Fsw.py)
-        self.modeRequest = 'detumbling'  # Inizia direttamente in modo detumbling
-        self.currentMode = None  # Modo attualmente attivo (impostato dagli eventi di attivazione)
+        # Initialize FSM mode request (used by events in EXCITE_Fsw.py)
+        self.modeRequest = 'detumbling'  # Start directly in detumbling mode
+        self.currentMode = None  # Currently active mode (set by activation events)
 
-        # Variabili di stato per le transizioni FSM basate su eventi
-        self.omegaNorm = 0.0  # Magnitudine velocità angolare corrente [rad/s]
-        self.detumblingComplete = False  # Flag: detumbling completato quando omega < soglia
-        self.deploymentStartTime_ns = None  # [ns] Tempo effettivo di inizio dispiegamento pannelli solari
+        # State variables for event-based FSM transitions
+        self.omegaNorm = 0.0  # Current angular velocity magnitude [rad/s]
+        self.detumblingComplete = False  # Flag: detumbling complete when omega < threshold
+        self.deploymentStartTime_ns = None  # [ns] Actual time when solar panel deployment starts (set by FSM event)
 
-        # Variabili di stato per la gestione delle eclissi
-        self.shadowFactor = 1.0  # Fattore d'ombra corrente (0=eclissi totale, 1=pieno sole)
-        self.previousMode = None  # Modo a cui tornare dopo l'eclissi
-        self.inEclipse = False  # Flag: attualmente in modo eclissi
-        self.eclipseCounter = 0  # Contatore: numero di ingressi in eclissi durante la missione
-        self.eclipseEntryTimes = []  # [ns] Lista dei tempi di ingresso in eclissi
-        self.eclipseExitTimes = []  # [ns] Lista dei tempi di uscita da eclissi
-        self.currentEclipseEntryTime = None  # [ns] Tempo di ingresso in eclissi corrente (temporaneo)
+        # Eclipse management state variables
+        self.shadowFactor = 1.0  # Current eclipse shadow factor (0=eclipse, 1=sun)
+        self.previousMode = None  # Mode to return to after eclipse
+        self.inEclipse = False  # Flag: currently in eclipse mode
+        self.eclipseCounter = 0  # Counter: number of eclipse entries during mission
+        self.eclipseEntryTimes = []  # [ns] List of eclipse entry times
+        self.eclipseExitTimes = []  # [ns] List of eclipse exit times
+        self.currentEclipseEntryTime = None  # [ns] Current eclipse entry time (temporary)
 
-        # Variabili di stato della Ground Station (sistema basato su FSM)
-        self.gsElevation = 0.0  # [deg] Angolo di elevazione GS corrente
-        self.gsRange = 99999.0  # [km] Distanza GS corrente
-        self.gsHasAccess = False  # Flag: GS attualmente visibile
+        # Ground Station state variables (FSM-based system)
+        self.gsElevation = 0.0  # [deg] Current GS elevation angle
+        self.gsRange = 99999.0  # [km] Current GS range
+        self.gsHasAccess = False  # Flag: GS currently visible
 
-        # Stato della generazione comandi random (basato su FSM)
-        self.commandStartTime = 0  # [ns] Tempo di inizio comando corrente (per tracking timeout)
-        self.missionOperationsStarted = False  # Flag: True dopo prima transizione a missionOperations
+        # Random Command Generation state (FSM-based)
+        self.commandStartTime = 0  # [ns] Start time of current command (for timeout tracking)
+        self.missionOperationsStarted = False  # Flag: True after first transition to missionOperations (prevents premature autoComplete events)
 
-        # Timestamp di esecuzione comandi per plotting (registrati all'inizio dei comandi)
-        self.commandExecutionTimes = {}  # Dict: {nome_comando: tempo_inizio_ns}
+        # Command execution timestamps for plotting (recorded when commands start)
+        self.commandExecutionTimes = {}  # Dict: {command_name: start_time_ns}
 
-        # Timestamp di attivazione modi (registrati quando i modi sono effettivamente attivati, non solo richiesti)
+        # Mode activation timestamps (recorded when modes are actually activated, not just requested)
         self.sunSafeActivationTime_ns = None
         self.gsPointingActivationTime_ns = None
         self.payloadAActivationTime_ns = None
         self.payloadBActivationTime_ns = None
         self.imagingActivationTime_ns = None
-        self.navigationTaskActivationTime_ns = None  # Tempo di attivazione QUEST (all'inizio deployment)
+        self.navigationTaskActivationTime_ns = None  # QUEST activation time (at deployment start)
 
-        # Dizionario per i recorder dei messaggi
+        # declare message recorder dictionary
         self.msgRecList = {}
 
-        # Imposta i modelli di dinamica e FSW per EXCITE
+        # Set EXCITE dynamics and FSW models
         self.set_DynModel(EXCITE_Dynamics)
         self.set_FswModel(EXCITE_Fsw)
 
-        # Configura le condizioni iniziali orbitali e di assetto
         self.configure_initial_conditions()
-        # Configura il logging dei messaggi per l'analisi
         self.log_outputs()
 
         # if this scenario is to interface with the BSK Viz, uncomment the following lines
@@ -116,14 +91,14 @@ class scenario_EXCITE(BSKSim, BSKScenario):
         #                                     )
 
     def updateFSMStateVariables(self):
-        """Aggiorna tutte le variabili di stato FSM dai messaggi
+        """Update all FSM state variables from messages
 
-        Questa funzione legge i messaggi e aggiorna:
-        - omegaNorm: Magnitudine velocità angolare per transizioni detumbling
-        - shadowFactor: Fattore d'ombra eclissi per modo eclissi automatico
-        - batterySOC: Stato di carica batteria (%) per transizioni di ricarica
-        - gsElevation: Angolo di elevazione ground station per rilevamento contatto
-        - gsHasAccess: Flag visibilità ground station
+        This function reads messages and updates:
+        - omegaNorm: Angular velocity magnitude for detumbling transitions
+        - shadowFactor: Eclipse shadow factor for automatic eclipse mode
+        - batterySOC: Battery State of Charge (%) for charging transitions
+        - gsElevation: Ground station elevation angle for contact detection
+        - gsHasAccess: Ground station visibility flag
         """
         try:
             DynModel = self.get_DynModel()
@@ -137,29 +112,29 @@ class scenario_EXCITE(BSKSim, BSKScenario):
         # Eclipse state tracking is handled by FSM events in EXCITE_Fsw.py
 
         try:
-            # Aggiorna la magnitudine della velocità angolare
+            # Update angular velocity magnitude
             scStateMsg = DynModel.scObject.scStateOutMsg.read()
             omega_BN_B = scStateMsg.omega_BN_B
             self.omegaNorm = np.linalg.norm(omega_BN_B)
 
-            # Aggiorna il fattore d'ombra eclissi (0.0 = eclissi totale, 1.0 = pieno sole)
+            # Update eclipse shadow factor (0.0 = total eclipse, 1.0 = full sun)
             eclipseMsg = DynModel.eclipseObject.eclipseOutMsgs[0].read()
             self.shadowFactor = eclipseMsg.shadowFactor
 
-            # Aggiorna lo stato di carica della batteria (SOC in %)
+            # Update battery State of Charge (SOC in %)
             batteryMsg = DynModel.battery.batPowerOutMsg.read()
             if batteryMsg.storageCapacity > 0:
                 self.batterySOC = (batteryMsg.storageLevel / batteryMsg.storageCapacity) * 100.0
             else:
                 self.batterySOC = 0.0
 
-            # Aggiorna lo stato di contatto con la ground station
+            # Update ground station contact status
             gsAccessMsg = FswModel.PisaGroundStation.accessOutMsgs[0].read()
             self.gsHasAccess = (gsAccessMsg.hasAccess == 1)
             self.gsElevation = np.degrees(gsAccessMsg.elevation)
 
-            # Il tracking delle eclissi è ora gestito dagli eventi FSM in EXCITE_Fsw.py
-            # (gli eventi enterEclipse e exitEclipse aggiornano eclipseEntryTimes/eclipseExitTimes)
+            # Eclipse tracking is now handled by FSM events in EXCITE_Fsw.py
+            # (enterEclipse and exitEclipse events update eclipseEntryTimes/eclipseExitTimes)
 
         except Exception as e:
             print("ERROR in updateFSM:", str(e))
@@ -169,55 +144,48 @@ class scenario_EXCITE(BSKSim, BSKScenario):
         return True  # Always return True so it doesn't block the condition
 
     def configure_initial_conditions(self):
-        """
-        Configura le condizioni iniziali orbitali e di assetto
-
-        Imposta un'orbita eliosincrona a 500 km con RAAN ottimizzato per visibilità da Pisa.
-        Condizioni iniziali di assetto: piccola rotazione e velocità angolare non nulla
-        per testare il detumbling.
-        """
-        # Configura le condizioni iniziali della dinamica
+        # Configure Dynamics initial conditions
         oe = orbitalMotion.ClassicElements()
-        oe.a = 6878.137 * 1000  # m - semiasse maggiore (raggio Terra + 500 km altitudine)
-        oe.e = 0.01  # eccentricità
-        oe.i = 97.99 * macros.D2R  # rad - inclinazione per orbita eliosincrona
-        oe.Omega = 70 * macros.D2R  # rad - RAAN ottimizzato per visibilità da Pisa
-        oe.omega = 0 * macros.D2R  # rad - argomento del periasse
-        oe.f = 0 * macros.D2R      # rad - anomalia vera
+        oe.a = 6878.137 * 1000  # m - semi-major axis (Earth radius + 500 km altitude)
+        oe.e = 0.01
+        oe.i = 97.99 * macros.D2R  # rad - inclination for sun-synchronous orbit
+        oe.Omega = 70 * macros.D2R  # rad - RAAN optimized for Pisa visibility
+        oe.omega = 0 * macros.D2R  # rad - argument of periapsis
+        oe.f = 0 * macros.D2R      # rad - true anomaly
 
         DynModels = self.get_DynModel()
         mu = DynModels.gravFactory.gravBodies['earth'].mu
         rN, vN = orbitalMotion.elem2rv(mu, oe)
         orbitalMotion.rv2elem(mu, rN, vN)
-        DynModels.scObject.hub.r_CN_NInit = rN  # m   - posizione iniziale
-        DynModels.scObject.hub.v_CN_NInit = vN  # m/s - velocità iniziale
-        DynModels.scObject.hub.sigma_BNInit = [[0.0], [0.2], [-0.3]]  # MRP assetto iniziale
-        DynModels.scObject.hub.omega_BN_BInit = [[0.4], [-0.4], [0.5]]  # rad/s - velocità angolare iniziale
+        DynModels.scObject.hub.r_CN_NInit = rN  # m   - r_CN_N
+        DynModels.scObject.hub.v_CN_NInit = vN  # m/s - v_CN_N
+        DynModels.scObject.hub.sigma_BNInit = [[0.0], [0.2], [-0.3]]  # sigma_BN_B
+        DynModels.scObject.hub.omega_BN_BInit = [[0.4], [-0.4], [0.5]]  # rad/s - omega_BN_B
 
     def log_outputs(self):
-        """Configura il logging di tutti gli output necessari per l'analisi del controllo d'assetto EXCITE"""
+        """Log all outputs needed for EXCITE attitude control analysis"""
         FswModel = self.get_FswModel()
         DynModel = self.get_DynModel()
         samplingTime = FswModel.processTasksTimeStep
 
-        # IMPORTANTE: Aggiungi ephemConverter al DynProcess così gira dall'inizio
-        # Questo garantisce che QUEST abbia dati di effemeridi del sole validi anche prima che navigationTask sia abilitato
+        # IMPORTANT: Add ephemConverter to DynProcess so it runs from the start
+        # This ensures QUEST has valid sun ephemeris data even before navigationTask is enabled
         self.AddModelToTask(DynModel.taskName, FswModel.ephemConverter, 108)
-        print("[SETUP] ephemConverter aggiunto al DynProcess (sempre attivo)")
+        print("[SETUP] ephemConverter added to DynProcess (always active)")
 
-        # 1. Errore di tracking dell'assetto (sigma_BR, omega_BR_B)
+        # 1. Attitude tracking error (sigma_BR, omega_BR_B)
         self.msgRecList['attGuidMsg'] = FswModel.attGuidMsg.recorder(samplingTime)
         self.AddModelToTask(DynModel.taskName, self.msgRecList['attGuidMsg'])
 
-        # 2. Assetto spacecraft e velocità angolari (omega_BN_B per analisi detumbling)
+        # 2. Spacecraft attitude and angular rates (omega_BN_B for detumbling analysis)
         self.msgRecList['simpleNavMsg'] = DynModel.simpleNavObject.attOutMsg.recorder(samplingTime)
         self.AddModelToTask(DynModel.taskName, self.msgRecList['simpleNavMsg'])
 
-        # 3. Coppia comandata (da rateServo, prima del lpFilter)
+        # 3. Commanded torque (from rateServo, before lpFilter)
         self.msgRecList['cmdTorqueMsg'] = FswModel.cmdTorqueMsg.recorder(samplingTime)
         self.AddModelToTask(DynModel.taskName, self.msgRecList['cmdTorqueMsg'])
 
-        # 4. Coppie effettive e velocità delle RW (dalla dinamica)
+        # 4. RW actual torques and speeds (from dynamics)
         self.msgRecList['rwSpeedMsg'] = DynModel.rwStateEffector.rwSpeedOutMsg.recorder(samplingTime)
         self.AddModelToTask(DynModel.taskName, self.msgRecList['rwSpeedMsg'])
 
@@ -488,6 +456,18 @@ class scenario_EXCITE(BSKSim, BSKScenario):
             euler_errors[i, 2] = euler[0]  # yaw error
 
         # Calculate settling time (needed for Figure 2 marker)
+        gsPointingStartTime = phaseMarkers['gsPointing']
+        gs_start_idx = np.argmin(np.abs(timeData - gsPointingStartTime))
+        gs_end_idx = len(timeData)
+        settling_threshold_rad = np.radians(0.2)
+        # DISABLED FOR QUEST DEBUG - settlingResults = EXCITE_Analysis.analyze_settling_time(...)
+        # settlingResults = EXCITE_Analysis.analyze_settling_time(
+        #     timeData, euler_errors, gs_start_idx, gs_end_idx, settling_threshold_rad
+        # )
+        # settling_idx = settlingResults['settling_idx']
+        settling_idx = gs_start_idx  # Use start of GS pointing as settling index for now
+
+        print(f"Generating 16 figures...")
 
         # ============================================================================
         # Generate all plots using EXCITE_Plotting module

@@ -2,7 +2,6 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-
 from Basilisk.utilities import macros
 from Basilisk.utilities import orbitalMotion
 from Basilisk.utilities import RigidBodyKinematics
@@ -11,16 +10,16 @@ from Basilisk.utilities import RigidBodyKinematics
 def plot_rw_angular_velocities(timeData, rwSpeeds, phaseMarkers, eclipseData, figNum=9,
                                 add_gs_windows_func=None, add_sweep_markers_func=None):
     """
-    Traccia le velocità angolari delle ruote di reazione per tutte e 4 le ruote.
+    Plot reaction wheel angular velocities for all 4 wheels.
 
     Args:
-        timeData: Array del tempo [ore]
-        rwSpeeds: Velocità delle RW [rad/s] (array N x 4)
-        phaseMarkers: Dizionario con i tempi delle fasi [ore]
-        eclipseData: Periodi di eclissi (opzionale, può essere None)
-        figNum: Numero della figura
-        add_gs_windows_func: Funzione per aggiungere finestre di accesso GS al grafico (opzionale)
-        add_sweep_markers_func: Funzione per aggiungere marker di inizio sweep al grafico (opzionale)
+        timeData: Time array [hours]
+        rwSpeeds: RW speeds [rad/s] (N x 4 array)
+        phaseMarkers: Dictionary with phase times [hours]
+        eclipseData: Eclipse periods (optional, can be None)
+        figNum: Figure number
+        add_gs_windows_func: Function to add GS access windows to plot (optional)
+        add_sweep_markers_func: Function to add sweep start markers to plot (optional)
     """
     plt.figure(figNum, figsize=(14, 10))
 
@@ -64,14 +63,14 @@ def plot_rw_angular_velocities(timeData, rwSpeeds, phaseMarkers, eclipseData, fi
 
 def plot_orbital_elements(timeData, r_BN_N, v_BN_N, mu, maneuverPhases=None):
     """
-    Traccia l'evoluzione degli elementi orbitali (altitudine, apogeo/perigeo, eccentricità).
+    Plot orbital elements evolution (altitude, apogee/perigee, eccentricity).
 
     Args:
-        timeData: Array del tempo [ore]
-        r_BN_N: Vettori posizione [m] (array N x 3)
-        v_BN_N: Vettori velocità [m/s] (array N x 3)
-        mu: Parametro gravitazionale [m^3/s^2]
-        maneuverPhases: Dizionario con i tempi delle fasi di manovra [ore] (opzionale)
+        timeData: Time array [hours]
+        r_BN_N: Position vectors [m] (N x 3 array)
+        v_BN_N: Velocity vectors [m/s] (N x 3 array)
+        mu: Gravitational parameter [m^3/s^2]
+        maneuverPhases: Dictionary with maneuver phase times [hours] (optional)
     """
     # Calculate orbital elements for each time step
     N = len(timeData)
@@ -161,14 +160,14 @@ def plot_orbital_elements(timeData, r_BN_N, v_BN_N, mu, maneuverPhases=None):
 
 def plot_mtb_dipoles(timeData, mtbDipoleCmd, mtbDipoleActual, phaseMarkers, figNum=5):
     """
-    Traccia i comandi di dipolo dei magnetorquer e i valori effettivi (3 assi).
+    Plot magnetorquer dipole commands and actual values (3 axes).
 
     Args:
-        timeData: Array del tempo [ore]
-        mtbDipoleCmd: Comandi dipolo MTB [A*m^2] (array N x 3)
-        mtbDipoleActual: Dipoli effettivi MTB [A*m^2] (array N x 3)
-        phaseMarkers: Dizionario con i tempi delle fasi [ore]
-        figNum: Numero della figura
+        timeData: Time array [hours]
+        mtbDipoleCmd: MTB dipole commands [A*m^2] (N x 3 array)
+        mtbDipoleActual: MTB actual dipoles [A*m^2] (N x 3 array)
+        phaseMarkers: Dictionary with phase times [hours]
+        figNum: Figure number
     """
     plt.figure(figNum, figsize=(12, 6))
 
@@ -201,13 +200,13 @@ def plot_mtb_dipoles(timeData, mtbDipoleCmd, mtbDipoleActual, phaseMarkers, figN
 
 def plot_solar_panel_angles(timeData, panelAngles, phaseMarkers, figNum=6):
     """
-    Traccia gli angoli dei pannelli solari in una griglia 2x2 (un sottografico per pannello).
+    Plot solar panel angles in 2x2 grid (one subplot per panel).
 
     Args:
-        timeData: Array del tempo [ore]
-        panelAngles: Angoli dei pannelli [rad] - lista di 4 array o array (N x 4)
-        phaseMarkers: Dizionario con i tempi delle fasi [ore]
-        figNum: Numero della figura
+        timeData: Time array [hours]
+        panelAngles: Panel angles [rad] - list of 4 arrays or (N x 4) array
+        phaseMarkers: Dictionary with phase times [hours]
+        figNum: Figure number
     """
     plt.figure(figNum, figsize=(14, 10))
 
@@ -239,14 +238,14 @@ def plot_solar_panel_angles(timeData, panelAngles, phaseMarkers, figNum=6):
 
 def plot_rw_torques(timeData, rwTorqueCmd, rwTorqueActual, phaseMarkers, figNum=8):
     """
-    Traccia le coppie delle ruote di reazione (comandate vs effettive) per tutte e 4 le ruote.
+    Plot reaction wheel torques (commanded vs actual) for all 4 wheels.
 
     Args:
-        timeData: Array del tempo [ore]
-        rwTorqueCmd: Coppie RW comandate [Nm] (array N x 4)
-        rwTorqueActual: Coppie RW effettive [Nm] (array N x 4)
-        phaseMarkers: Dizionario con i tempi delle fasi [ore]
-        figNum: Numero della figura
+        timeData: Time array [hours]
+        rwTorqueCmd: Commanded RW torques [Nm] (N x 4 array)
+        rwTorqueActual: Actual RW torques [Nm] (N x 4 array)
+        phaseMarkers: Dictionary with phase times [hours]
+        figNum: Figure number
     """
     plt.figure(figNum, figsize=(14, 10))
 
@@ -267,15 +266,15 @@ def plot_rw_torques(timeData, rwTorqueCmd, rwTorqueActual, phaseMarkers, figNum=
 
 def plot_attitude_tracking_errors(timeData, sigma_BR, phaseMarkers, eclipseData=None, settling_idx=None, figNum=2):
     """
-    Traccia gli errori di tracciamento dell'assetto (angoli di Roll, Pitch, Yaw).
+    Plot attitude tracking errors (Roll, Pitch, Yaw angles).
 
     Args:
-        timeData: Array del tempo [ore]
-        sigma_BR: Errore di assetto MRP (array N x 3)
-        phaseMarkers: Dizionario con i tempi delle fasi [ore]
-        eclipseData: Dizionario con liste 'entry_times_hours' e 'exit_times_hours' (opzionale)
-        settling_idx: Indice del tempo di assestamento (opzionale, può essere None)
-        figNum: Numero della figura
+        timeData: Time array [hours]
+        sigma_BR: MRP attitude error (N x 3 array)
+        phaseMarkers: Dictionary with phase times [hours]
+        eclipseData: Dictionary with 'entry_times_hours' and 'exit_times_hours' lists (optional)
+        settling_idx: Settling time index (optional, can be None)
+        figNum: Figure number
     """
     from Basilisk.utilities import RigidBodyKinematics as rbk
 
@@ -336,14 +335,14 @@ def plot_attitude_tracking_errors(timeData, sigma_BR, phaseMarkers, eclipseData=
 
 def plot_altitude_comparison(timeData, altitude_controlled, altitude_dummy, phaseMarkers, figNum=12):
     """
-    Traccia il confronto dell'altitudine tra spacecraft controllato e dummy (fianco a fianco).
+    Plot altitude comparison between controlled and dummy spacecraft (side by side).
 
     Args:
-        timeData: Array del tempo [ore]
-        altitude_controlled: Altitudine dello spacecraft controllato [km]
-        altitude_dummy: Altitudine dello spacecraft dummy (nessun controllo) [km]
-        phaseMarkers: Dizionario con tempi di inizio/fine accensione [ore]
-        figNum: Numero della figura
+        timeData: Time array [hours]
+        altitude_controlled: Altitude of controlled spacecraft [km]
+        altitude_dummy: Altitude of dummy spacecraft (no control) [km]
+        phaseMarkers: Dictionary with firing start/end times [hours]
+        figNum: Figure number
     """
     plt.figure(figNum, figsize=(14, 6))
 
@@ -397,13 +396,13 @@ def plot_altitude_comparison(timeData, altitude_controlled, altitude_dummy, phas
 
 def plot_altitude_difference(timeData, altitude_diff, phaseMarkers, figNum=13):
     """
-    Traccia la differenza di altitudine tra spacecraft controllato e dummy.
+    Plot altitude difference between controlled and dummy spacecraft.
 
     Args:
-        timeData: Array del tempo [ore]
-        altitude_diff: Differenza di altitudine (controllato - dummy) [km]
-        phaseMarkers: Dizionario con tempi di inizio/fine accensione [ore]
-        figNum: Numero della figura
+        timeData: Time array [hours]
+        altitude_diff: Altitude difference (controlled - dummy) [km]
+        phaseMarkers: Dictionary with firing start/end times [hours]
+        figNum: Figure number
     """
     plt.figure(figNum, figsize=(12, 6))
 
@@ -452,13 +451,13 @@ def plot_altitude_difference(timeData, altitude_diff, phaseMarkers, figNum=13):
 
 def plot_thruster_force(timeData, thrustForces, phaseMarkers, figNum=20):
     """
-    Traccia le forze di spinta per i propulsori PPT.
+    Plot thruster forces for PPT thrusters.
 
     Args:
-        timeData: Array del tempo [ore]
-        thrustForces: Forze di spinta [N] (array N x 4 per 4 propulsori)
-        phaseMarkers: Dizionario con i tempi delle fasi [ore]
-        figNum: Numero della figura
+        timeData: Time array [hours]
+        thrustForces: Thrust forces [N] (N x 4 array for 4 thrusters)
+        phaseMarkers: Dictionary with phase times [hours]
+        figNum: Figure number
     """
     plt.figure(figNum, figsize=(12, 7))
 
@@ -489,11 +488,11 @@ def plot_thruster_force(timeData, thrustForces, phaseMarkers, figNum=20):
 
 def add_maneuver_phase_markers(ax, phaseMarkers):
     """
-    Funzione ausiliaria per aggiungere marker delle fasi di manovra a un asse del grafico.
+    Helper function to add maneuver phase markers to a plot axis.
 
     Args:
-        ax: Oggetto asse Matplotlib
-        phaseMarkers: Dizionario con i tempi delle fasi [ore]
+        ax: Matplotlib axis object
+        phaseMarkers: Dictionary with phase times [hours]
     """
     if phaseMarkers:
         for phase_name, phase_time in phaseMarkers.items():
@@ -507,14 +506,14 @@ def add_maneuver_phase_markers(ax, phaseMarkers):
 
 def plot_maneuver_attitude_errors(timeData, sigma_BR, omega_BR_B, phaseMarkers, figNum=21):
     """
-    Traccia gli errori di assetto durante le manovre.
+    Plot attitude errors during maneuvers.
 
     Args:
-        timeData: Array del tempo [ore]
-        sigma_BR: Errore di assetto MRP (array N x 3)
-        omega_BR_B: Errore di velocità angolare [rad/s] (array N x 3)
-        phaseMarkers: Dizionario con i tempi delle fasi [ore]
-        figNum: Numero della figura
+        timeData: Time array [hours]
+        sigma_BR: MRP attitude error (N x 3 array)
+        omega_BR_B: Angular velocity error [rad/s] (N x 3 array)
+        phaseMarkers: Dictionary with phase times [hours]
+        figNum: Figure number
     """
     fig, axes = plt.subplots(2, 1, figsize=(12, 8))
 
@@ -546,13 +545,13 @@ def plot_maneuver_attitude_errors(timeData, sigma_BR, omega_BR_B, phaseMarkers, 
 
 def plot_detumbling_angular_velocity(timeData, omega_BN_B, phaseMarkers, figNum=22):
     """
-    Traccia la velocità angolare durante la fase di detumbling.
+    Plot angular velocity during detumbling phase.
 
     Args:
-        timeData: Array del tempo [ore]
-        omega_BN_B: Velocità angolare [rad/s] (array N x 3)
-        phaseMarkers: Dizionario con i tempi delle fasi [ore]
-        figNum: Numero della figura
+        timeData: Time array [hours]
+        omega_BN_B: Angular velocity [rad/s] (N x 3 array)
+        phaseMarkers: Dictionary with phase times [hours]
+        figNum: Figure number
     """
     plt.figure(figNum, figsize=(12, 6))
 
@@ -578,13 +577,13 @@ def plot_detumbling_angular_velocity(timeData, omega_BN_B, phaseMarkers, figNum=
 
 def plot_deployment_impact_zoom(timeData, omega_BN_B, deployment_time, figNum=23):
     """
-    Traccia una vista ingrandita della velocità angolare attorno all'evento di dispiegamento.
+    Plot zoomed view of angular velocity around deployment event.
 
     Args:
-        timeData: Array del tempo [ore]
-        omega_BN_B: Velocità angolare [rad/s] (array N x 3)
-        deployment_time: Tempo di dispiegamento [ore]
-        figNum: Numero della figura
+        timeData: Time array [hours]
+        omega_BN_B: Angular velocity [rad/s] (N x 3 array)
+        deployment_time: Deployment time [hours]
+        figNum: Figure number
     """
     plt.figure(figNum, figsize=(12, 6))
 
@@ -615,12 +614,12 @@ def plot_deployment_impact_zoom(timeData, omega_BN_B, deployment_time, figNum=23
 
 def add_ppt_phase_markers(ax, phaseMarkers):
     """
-    Funzione ausiliaria per aggiungere marker delle fasi di accensione PPT a un asse del grafico.
-    Mostra tutti gli eventi di accensione con linee verticali e regioni ombreggiate.
+    Helper function to add PPT firing phase markers to a plot axis.
+    Shows all firing events with vertical lines and shaded regions.
 
     Args:
-        ax: Oggetto asse Matplotlib
-        phaseMarkers: Dizionario con tempi di inizio/fine accensione [ore]
+        ax: Matplotlib axis object
+        phaseMarkers: Dictionary with firing start/end times [hours]
     """
     if phaseMarkers:
         firing_numbers = set()
@@ -652,13 +651,13 @@ def add_ppt_phase_markers(ax, phaseMarkers):
 
 def plot_ppt_individual_forces(timeData, pptForces, phaseMarkers, figNum=24):
     """
-    Traccia le forze individuali dei propulsori PPT.
+    Plot individual PPT thruster forces.
 
     Args:
-        timeData: Array del tempo [ore]
-        pptForces: Forze PPT [N] (array N x 4)
-        phaseMarkers: Dizionario con tempi delle fasi di accensione [ore]
-        figNum: Numero della figura
+        timeData: Time array [hours]
+        pptForces: PPT forces [N] (N x 4 array)
+        phaseMarkers: Dictionary with firing phase times [hours]
+        figNum: Figure number
     """
     plt.figure(figNum, figsize=(14, 10))
 
@@ -680,13 +679,13 @@ def plot_ppt_individual_forces(timeData, pptForces, phaseMarkers, figNum=24):
 
 def plot_ppt_torque_z(timeData, torque_z, phaseMarkers, figNum=25):
     """
-    Traccia la coppia sull'asse Z durante le accensioni PPT.
+    Plot Z-axis torque during PPT firings.
 
     Args:
-        timeData: Array del tempo [ore]
-        torque_z: Coppia asse Z [Nm] (array N)
-        phaseMarkers: Dizionario con tempi delle fasi di accensione [ore]
-        figNum: Numero della figura
+        timeData: Time array [hours]
+        torque_z: Z-axis torque [Nm] (N array)
+        phaseMarkers: Dictionary with firing phase times [hours]
+        figNum: Figure number
     """
     plt.figure(figNum, figsize=(12, 6))
 
@@ -707,13 +706,13 @@ def plot_ppt_torque_z(timeData, torque_z, phaseMarkers, figNum=25):
 
 def plot_ppt_omega_z(timeData, omega_z, phaseMarkers, figNum=26):
     """
-    Traccia la velocità angolare sull'asse Z durante le accensioni PPT.
+    Plot Z-axis angular velocity during PPT firings.
 
     Args:
-        timeData: Array del tempo [ore]
-        omega_z: Velocità angolare asse Z [rad/s] (array N)
-        phaseMarkers: Dizionario con tempi delle fasi di accensione [ore]
-        figNum: Numero della figura
+        timeData: Time array [hours]
+        omega_z: Z-axis angular velocity [rad/s] (N array)
+        phaseMarkers: Dictionary with firing phase times [hours]
+        figNum: Figure number
     """
     plt.figure(figNum, figsize=(12, 6))
 
@@ -735,14 +734,14 @@ def plot_ppt_omega_z(timeData, omega_z, phaseMarkers, figNum=26):
 
 def plot_ppt_performance(timeData, dvData, altitudeData, phaseMarkers, figNum=27):
     """
-    Traccia le metriche di prestazione PPT (delta-V e variazione di altitudine).
+    Plot PPT performance metrics (delta-V and altitude change).
 
     Args:
-        timeData: Array del tempo [ore]
-        dvData: Dati Delta-V [m/s] (dizionario con componenti)
-        altitudeData: Dati altitudine [km]
-        phaseMarkers: Dizionario con tempi delle fasi di accensione [ore]
-        figNum: Numero della figura
+        timeData: Time array [hours]
+        dvData: Delta-V data [m/s] (dictionary with components)
+        altitudeData: Altitude data [km]
+        phaseMarkers: Dictionary with firing phase times [hours]
+        figNum: Figure number
     """
     fig, axes = plt.subplots(2, 1, figsize=(12, 8))
 
@@ -771,13 +770,13 @@ def plot_ppt_performance(timeData, dvData, altitudeData, phaseMarkers, figNum=27
 
 def plot_ppt_omega_z_pre_end_detumbling(timeData, omega_z, detumble_end_time, figNum=28):
     """
-    Traccia la velocità angolare sull'asse Z prima della fine del detumbling.
+    Plot Z-axis angular velocity before end of detumbling.
 
     Args:
-        timeData: Array del tempo [ore]
-        omega_z: Velocità angolare asse Z [rad/s]
-        detumble_end_time: Tempo di fine detumbling [ore]
-        figNum: Numero della figura
+        timeData: Time array [hours]
+        omega_z: Z-axis angular velocity [rad/s]
+        detumble_end_time: End time of detumbling [hours]
+        figNum: Figure number
     """
     plt.figure(figNum, figsize=(12, 6))
 

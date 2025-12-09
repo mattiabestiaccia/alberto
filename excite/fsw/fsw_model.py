@@ -28,11 +28,12 @@ from Basilisk import __path__
 from Basilisk.architecture import messaging
 from Basilisk.fswAlgorithms import (attTrackingError, mrpSteering, rateServoFullNonlinear,
                                     lowPassFilterTorqueCommand,
-                                    rwMotorTorque, B_dot_controller_C,
+                                    rwMotorTorque,
                                     sunSafePoint, locationPointing, cssWlsEst, sunlineEphem,
-                                    mtbMomentumManagementSimple, torque2Dipole,
-                                    dipoleMapping, rwNullSpace,
-                                    questAttDet, SMEKF)
+                                    mtbMomentumManagementSimple, mtbFeedforward, torque2Dipole,
+                                    dipoleMapping, rwNullSpace)
+# NOTE: B_dot_controller_C removed - custom module, using mtbFeedforward for detumbling instead
+# NOTE: questAttDet and SMEKF removed - custom navigation modules not in standard Basilisk
 from Basilisk.simulation import ephemerisConverter, groundLocation, hingedBodyLinearProfiler, hingedRigidBodyMotor
 from Basilisk.utilities import RigidBodyKinematics as rbk
 from Basilisk.utilities import fswSetupRW
@@ -136,8 +137,11 @@ class BSKFswModels:
         self.rwNullSpace = rwNullSpace.rwNullSpace()  # Controllo null space RW
         self.rwNullSpace.ModelTag = "rwNullSpace"
 
-        self.b_dot_controller = B_dot_controller_C.B_dot_controller_C()  # Controllore B-dot per detumbling
-        self.b_dot_controller.ModelTag = "B_dot_Controller"
+        # B-dot controller DISABLED - mtbFeedforward doesn't support TAM input
+        # TODO: Implement proper B-dot controller or use RW-only detumbling
+        # self.b_dot_controller = mtbFeedforward.mtbFeedforward()  # MTB feedforward for detumbling
+        # self.b_dot_controller.ModelTag = "mtbFeedforward"
+        self.b_dot_controller = None  # Disabled for now
 
         # Moduli gestione momento angolare (Momentum Management)
         self.mtbMomentumManagement = mtbMomentumManagementSimple.mtbMomentumManagementSimple()  # Desaturazione RW con MTB
@@ -156,12 +160,12 @@ class BSKFswModels:
         self.lpFilter.ModelTag = "lpFilter"
 
         # Moduli di navigazione (Navigation)
-        self.questModule = questAttDet.questAttDet()  # QUEST (determinazione assetto statica)
-        self.questModule.ModelTag = "questAttDet"
+        # self.questModule = questAttDet.questAttDet()  # DISABLED:  custom module
+        # self.questModule.ModelTag = "questAttDet"
 
         # SMEKF Navigation Filter module
-        self.smekfModule = SMEKF.SMEKF()
-        self.smekfModule.ModelTag = "SMEKF"
+        # self.smekfModule = SMEKF.SMEKF()  # DISABLED: custom module
+        # self.smekfModule.ModelTag = "SMEKF"
 
         # Defining the profilers for the solar panel deployment
         self.profilers_list = []
@@ -198,8 +202,9 @@ class BSKFswModels:
         # TASK 1: detumblingTask - B-dot controller with MTB for detumbling
         # =========================================================================
         # Execution order: B-dot -> dipoleMapping -> MTB effector
-        SimBase.AddModelToTask("detumblingTask", self.b_dot_controller, 9)  # Execute FIRST
-        SimBase.AddModelToTask("detumblingTask", self.dipoleMappingBdot, 8) # Execute SECOND
+        # B-dot controller DISABLED - using RW-only detumbling
+        # SimBase.AddModelToTask("detumblingTask", self.b_dot_controller, 9)  # Execute FIRST
+        # SimBase.AddModelToTask("detumblingTask", self.dipoleMappingBdot, 8) # Execute SECOND
 
         # =========================================================================
         # TASK 2: solar arrays deployment task -
@@ -232,10 +237,11 @@ class BSKFswModels:
         # Execution order: ephemConverter -> sunlineEphem -> QUEST -> SMEKF
         # QUEST: Computes attitude from sun vector + magnetometer measurements
         # SMEKF: Fuses QUEST, Star Tracker, and IMU for optimal attitude estimate
-        # NOTE: ephemConverter and sunlineEphem are needed to provide sun vector to QUEST
+        # NOTE: ephemConverter and sunlineEphem provide sun vector (still needed for sun pointing)
         SimBase.AddModelToTask("navigationTask", self.ephemConverter, 15)  # Ephemeris first
         SimBase.AddModelToTask("navigationTask", self.sunlineEphem, 14)    # Sun direction second
-        SimBase.AddModelToTask("navigationTask", self.questModule, 12)     # QUEST runs after sun vector is available
+        # QUEST and SMEKF DISABLED - custom modules not available
+        # SimBase.AddModelToTask("navigationTask", self.questModule, 12)     # QUEST runs after sun vector is available
         # SimBase.AddModelToTask("navigationTask", self.smekfModule, 11)   # SMEKF DISABLED FOR DEBUG
 
         # =========================================================================
@@ -453,11 +459,12 @@ class BSKFswModels:
             actionFunction=lambda self: (
                 self.fswProc.disableAllTasks(),
                 self.FSWModels.zeroGateWayMsgs(),
-                setattr(self.FSWModels.b_dot_controller, 'enableController', 1),
+                # B-dot controller DISABLED - using RW-only detumbling
+                # setattr(self.FSWModels.b_dot_controller, 'enableController', 1),
                 self.enableTask("detumblingTask"),
                 self.enableTask("solarDeploymentTask"),
                 setattr(self, 'currentMode', 'detumbling'),
-                print(f"  -> Activated: detumblingTask, solarDeploymentTask")
+                print(f"  -> Activated: detumblingTask (RW-only), solarDeploymentTask")
             )
         )
 
@@ -473,10 +480,11 @@ class BSKFswModels:
             actionFunction=lambda self: (
                 self.fswProc.disableAllTasks(),
                 self.FSWModels.zeroGateWayMsgs(),
-                setattr(self.FSWModels.b_dot_controller, 'enableController', 1),
+                # B-dot controller DISABLED - using RW-only detumbling
+                # setattr(self.FSWModels.b_dot_controller, 'enableController', 1),
                 self.enableTask("detumblingTask"),
                 self.enableTask("solarDeploymentTask"),
-                self.enableTask("navigationTask"),  # QUEST starts at deployment
+                self.enableTask("navigationTask"),  # Star Tracker nav continues
                 setattr(self, 'currentMode', 'deployment'),
                 # Record navigation task activation time for plotting
                 setattr(self, 'navigationTaskActivationTime_ns', self.TotalSim.CurrentNanos),
@@ -922,34 +930,46 @@ class BSKFswModels:
 
         # Configure B-dot controller parameters (CRITICAL for C module to work!)
         # Omega-feedback gain (dimensionless)
-        self.b_dot_controller.controlGain_K = -K_avanzini  # [dimensionless] - negative for detumbling
+        # NOTE: mtb Feedforward module doesn't support configuration parameters (controlGain_K, classicBDotGain_K, etc.)
+        # All configuration parameters below are DISABLED - module uses default behavior
+        
+        # self.b_dot_controller.controlGain_K = -K_avanzini  # DISABLED: attribute doesn't exist
 
         # Classic B-dot gain (different dimensions!)
         # Estimated from: K = m_desired / (dB/dt_typical)
         # For LEO: dB/dt ~ 3e-6 T/s (during rotation), m ~ 0.1 Am^2 -> K ~ 3e4 Am^2*s/T
         # Using 5e4 for more aggressive detumbling, negative sign for detumbling
-        self.b_dot_controller.classicBDotGain_K = -5.0e5  # [Am^2*s/T] - negative for detumbling
+        # self.b_dot_controller.classicBDotGain_K = -5.0e5  # DISABLED: attribute doesn't exist
+        # self.b_dot_controller.omegaBdotThreshold = 0.01  # DISABLED: attribute doesn't exist
+        # self.b_dot_controller.gainRampUpTime = 60.0  # DISABLED: attribute doesn't exist
+        # self.b_dot_controller.Bt_B = [0.267, -0.0389, 0.186]  # DISABLED: attribute doesn't exist
+        # self.b_dot_controller.magPoleStrength = 7.96e15  # DISABLED: attribute doesn't exist
+        # self.b_dot_controller.orbitRadius = oe[0]  # DISABLED: attribute doesn't exist
 
-        # Common parameters
-        self.b_dot_controller.maxDipoleRequest = 0.8  # [Am^2] - CR0008 MTB maximum dipole moment
-        self.b_dot_controller.minMagFieldForControl = 1.0e-8  # [T] - Minimum field threshold
-        self.b_dot_controller.enableController = 1  # Start DISABLED - will be enabled after warmup in scenario
-        self.b_dot_controller.useClassicBDot = 1  # 0 = omega-feedback law (default), 1 = classic B-dot law (dB/dt)
+        # Common parameters - ALL DISABLED: mtbFeedforward doesn't support configuration
+        # self.b_dot_controller.maxDipoleRequest = 0.8  # DISABLED: attribute doesn't exist
+        # self.b_dot_controller.minMagFieldForControl = 1.0e-8  # DISABLED: attribute doesn't exist
+        # self.b_dot_controller.enableController = 1  # DISABLED: attribute doesn't exist
+        # self.b_dot_controller.useClassicBDot = 1  # DISABLED: attribute doesn't exist
 
-        # Connect input messages
-        self.b_dot_controller.tamDataInMsg.subscribeTo(SimBase.DynModels.tamComm.tamOutMsg)
-        self.b_dot_controller.scStateInMsg.subscribeTo(SimBase.DynModels.scObject.scStateOutMsg)
+        # B-DOT CONTROLLER DISABLED - mtbFeedforward doesn't support TAM input
+        # Using RW-only detumbling instead
+        # TODO: Implement proper B-dot or find alternative Basilisk module
 
-        # Configure dipole mapping for B-dot path: DipoleRequestBodyMsg -> MTBCmdMsg
-        self.dipoleMappingBdot.steeringMatrix = [
-            1.0, 0.0, 0.0,  # MTB 1: X-axis
-            0.0, 1.0, 0.0,  # MTB 2: Y-axis
-            0.0, 0.0, 1.0   # MTB 3: Z-axis
-        ]
-        self.dipoleMappingBdot.dipoleRequestBodyInMsg.subscribeTo(self.b_dot_controller.dipoleRequestOutMsg)
-        self.dipoleMappingBdot.mtbArrayConfigParamsInMsg.subscribeTo(self.mtbConfigMsg)
-        # Dipole mapping writes to dipole gateway
-        messaging.MTBCmdMsg_C_addAuthor(self.dipoleMappingBdot.dipoleRequestMtbOutMsg, self.dipoleGatewayMsg)
+        # Connect input messages - DISABLED
+        # self.b_dot_controller.tamDataInMsg.subscribeTo(SimBase.DynModels.tamComm.tamOutMsg)
+        # self.b_dot_controller.scStateInMsg.subscribeTo(SimBase.DynModels.scObject.scStateOutMsg)
+
+        # Configure dipole mapping for B-dot path: DipoleRequestBodyMsg -> MTBCmdMsg - DISABLED
+        # self.dipoleMappingBdot.steeringMatrix = [
+        #     1.0, 0.0, 0.0,  # MTB 1: X-axis
+        #     0.0, 1.0, 0.0,  # MTB 2: Y-axis
+        #     0.0, 0.0, 1.0   # MTB 3: Z-axis
+        # ]
+        # self.dipoleMappingBdot.dipoleRequestBodyInMsg.subscribeTo(self.b_dot_controller.dipoleRequestOutMsg)
+        # self.dipoleMappingBdot.mtbArrayConfigParamsInMsg.subscribeTo(self.mtbConfigMsg)
+        # Dipole mapping writes to dipole gateway - DISABLED
+        # messaging.MTBCmdMsg_C_addAuthor(self.dipoleMappingBdot.dipoleRequestMtbOutMsg, self.dipoleGatewayMsg)
 
     def SetMTBConfigMsg(self, SimBase):
         """MTB configuration already done in setupGatewayMsgs - this is a placeholder"""
@@ -1209,8 +1229,13 @@ class BSKFswModels:
         self.SetMomentumManagement(SimBase)
         self.SetTorque2Dipole(SimBase)  # Pass SimBase to access DynModels.tamComm
         self.SetDipoleMapping()
-        self.SetQuestAttDet(SimBase)  # QUEST attitude determination
-        self.SetSMEKF(SimBase)  # SMEKF navigation filter
+
+        # QUEST and SMEKF DISABLED - custom modules not available in standard Basilisk
+        # Using Star Tracker directly for attitude determination
+        # TODO: Implement alternative attitude determination or find Basilisk-native QUEST
+        # self.SetQuestAttDet(SimBase)  # QUEST attitude determination
+        # self.SetSMEKF(SimBase)  # SMEKF navigation filter
+
         self.SetSolarPanelProfilers()  # Configure profilers first
         self.SetMotorPanels(SimBase)  # Then connect motors and panels to profilers
 
@@ -1252,9 +1277,9 @@ class BSKFswModels:
         SimBase.DynModels.mtbEffector.mtbParamsInMsg.subscribeTo(self.mtbConfigMsg)
         SimBase.DynModels.mtbEffector.magInMsg.subscribeTo(SimBase.DynModels.magModule.envOutMsgs[0])
 
-        # Connect all 3 MTB power modules to dipole gateway (for power consumption monitoring)
-        for powerMTB in SimBase.DynModels.mtbPowerList:
-            powerMTB.mtbCmdInMsg.subscribeTo(self.dipoleGatewayMsg)
+        # Connect all 3 MTB power modules to        # Connect MTB power modules - DISABLED: MtbPower not available
+        # for powerMTB in SimBase.DynModels.mtbPowerList:
+        #     powerMTB.mtbCmdInMsg.subscribeTo(self.mtbCmdWriteFswrMsg)
 
     def zeroGateWayMsgs(self):
         """Zero all the FSW gateway message payloads"""

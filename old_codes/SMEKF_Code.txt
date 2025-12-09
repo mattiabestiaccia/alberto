@@ -1,0 +1,171 @@
+// This is the pseudo-code base for the attitude filter,
+// the Sequential Multiplicative Extended Kalman Filter (SMEKF)
+
+The outputs of the filter have to be the omega, the bias and the attitude estimated by the filter.
+Inside the filter we need to have the chance to choose if to use the quest, the star tracker or both.
+I also need a debug flag: if I activate this flag only the propagation is active, while if is off also the measurement
+update is performed.
+
+#####################################################################
+
+1. INITIALIZATION
+
+#####################################################################
+
+// What we want to do in this step is to set the variables when the filter is called 
+//for the first time. So this means:
+
+// q_hat_k = q0;  // 4x1 quaternion 
+// P_k = P0       // 6x6 covariance matrix
+// B_hat_k = B0;  // 3x1 vector representing the gyroscope bias
+
+if (first time this filter's module is called == 1):
+
+    q_hat_k = q_star_tracker // 4x1 null quaternion from the star tracker
+    P_k = 0(6x6) // null matrix of 6x6 dimension
+    B_hat_k = 0 // 3x1 vector of zeros
+else
+    q_hat_k = q_hat_prev;
+    P_k = P_prev;
+    B_hat_k = B_hat_prev;
+end    
+
+#####################################################################
+
+2. PROPAGATION
+
+#####################################################################
+
+// Finding the estimated angular velocity in this propagation step
+
+w_hat = w_meas - B_hat_k     // w_meas,  3x1 vector of gyro inputs 
+                               // B_hat_k, 3x1 vector of bias estimated till step k 
+
+// Let's find the incremental quaternion 
+
+delta_theta = norm(w_hat) * delta_t    // let delta_t be the update time step
+
+if (delta_theta > 1e-8):
+    q_inc_k = [cos(delta_theta/2); sin(delta_theta/2)*w_hat/norm(w_hat)] // 4x1 quaternion, scalar part first
+else
+    q_inc_k = [1; w_hat * delta_t/2] // 4x1 quaternion, scalar first    (check if unitary quaternion)
+end
+
+q_hat_k_k = q_inc_k @ q_hat_k   // a priori estimate, where @ is the quaternion product
+
+// Let's now find the Covariance Matrix Propagation: to do so, we need the matrices PHI and Q_d
+// First we need to find the propagation matrix PHI
+
+PHI = [PHI_11, PHI_12;     // PHI is the 6x6 matrix needed for the propagation of the state
+       PHI_21, PHI_22]
+
+PHI_11 = eye(3x3) - [(w_hat)x]*sin(norm(w_hat)*delta_t)/norm(w_hat) + [(w_hat)x]**2 *(1-cos(norm(w_hat)*delta_t)/(norm(w_hat))**2)
+PHI_12 = [(w_hat)x]*(1-cos(norm(w_hat)*delta_t)/(norm(w_hat))**2) - delta_t*eye(3) - [(w_hat)x]**2 * ((w_hat*delta_t - sin(norm(w_hat)*delta_t))/norm(w_hat)**3)
+PHI_21 = 0(3x3)
+PHI_22 = eye(3)
+
+// Each term of PHI is a 3x3 square matrix, where:
+//- [(w_hat)x] is the skew antysimmetric matric from the angular velocity vector (there should be a proper function for this in Basilisk)
+//- eye(3x3) is the 3x3 Identity matrix
+//- 0(3x3) is the 3x3 null matrix
+
+// Let's now find Q_d, which corresponds to the discrete process noise covariance 
+
+Q_d = [(sigma_v**2*delta_t + 1/3 sigma_u**2*delta_t**3)*(eye(3x3)), -(1/2*sigma_u**2*delta_t**2)*(eye(3x3));
+       -(1/2*sigma_u**2*delta_t**2)*(eye(3x3)), (sigma_u**2*delta_t)*eye(3x3)]
+
+// Also here each term is a 3x3 matrix, where:
+//- sigma_v**2 is the variance of the white gaussian independent process eta_v(t)
+//- sigma_u**2 is the variance of the white gaussian independent process eta_u(t)
+//These two appears in the model equations of the gyroscope, which are:
+//w_tilde(t) = w_true + B(t) + eta_v(t)
+//B_dot(t) = eta_u(t)
+
+P_k_k = PHI * P_k + PHI^T + Q_d (filter only in prediction step to understand if the singularity is in prediction and how is bad the model wrt reality)
+
+#####################################################################
+
+3. MEASUREMENTS UPDATE
+
+#####################################################################
+
+// Here there is what distinguishes this filter from the general flow of the
+// MEKF. In particular what we are going to do now is to adjust the propagation
+// results with two quaternion measurements, one from the questAttDet module and
+// one from the star tracker sensor. The updates will be consequential, and the
+// covariance update will be performed after the two consequent measurements update.
+
+meas_list = [] // initializing an empty list to be filled with measurements
+
+if (questAttDet is available):
+    q_quest = questAttDet() // Calling the questAttDet module or receiving questAttDet message.
+    meas_list.append(q_quest)
+end
+if (star_tracker is available):
+    meas_list.append(star_tracker_output)    
+end
+
+// The main purpouse of the last step is to fill a list with a number of available 
+// measurements at this timestep. If there is only one of them, the SMEKF behaves
+// just like a normal MEKF
+
+for j in range(meas_list):
+
+    delta_q_k(j) = meas_list[j] @ (q_hat_k_k)^-1
+
+    // I can now create the innovation delta_z_k(j)
+    delta_z_k(j) = 2 * (delta_q_k(j)[1]; delta_q_k(j)[2]; delta_q_k(j)[3]) // 3x1 vector
+
+    // Defining the sensitive matrix H_k(j) which is given as:
+    H_k(j) = [eye(3x3), 0(3x3)]  // H_k(j) is a 3x6 matrix
+
+    // Computing the Kalman Gain K_k(j)
+    K_k(j) = P_k_k * H_k(j)^T * (H_k(j) * P_k_k * H_k(j)^T + R(j))^-1  // look if the matrix P_k_k is little in diagonal, bad conditioned
+
+    // Computing the update of the state variable:
+    delta_x_k = K_k(j) * delta_z_k(j)
+
+    // Now we will use the update vector to update the state variables:
+    q_hat_k1_k = q_hat_k_k + 1/2 * THETA(q_hat_k_k) * delta_x_k[0:2] // 4x1 quaternion
+    
+    // where THETA(q_hat_k_k) is the 4x3 matrix founded as follows (don't know if there
+    // is any utils function for this already written in Basilisk):
+    // THETA(q_hat_k_k) = [-q_hat_k_k(1), -q_hat_k_k(2), -q_hat_k_k(3);
+    //                     q_hat_k_k(0), -q_hat_k_k(3), q_hat_k_k(2);
+    //                     q_hat_k_k(3), q_hat_k_k(0), -q_hat_k_k(1);
+    //                     -q_hat_k_k(2), q_hat_k_k(1), q_hat_k_k(0)]
+ 
+    B_hat_k1 = B_hat_k + delta_x_k[3:5]
+
+    // After the measurements update corrections, what we need to do is to reset
+    // the error state update, so:
+
+    delta_x_k = 0 // 6x1 vector
+
+    // What we want to do with the SMEKF is that in the next iteration, if another 
+    //quaternion measurement is provided:
+    // q_k_k = q_hat_k1_k
+    // B_hat_k = B_hat_k1 .
+    // In this way we can use the updated quaternion as a priori estimate for the new
+    // measurement update
+
+end    
+
+// At the end of the update session, we can also update the covariance matrix:
+
+P_k1_k = [eye(6x6) - K_k,n * H_k,n] * P_k_k
+
+// where K_k,n and H_k,n are the gain and sensitivity matrix found with the last update.
+
+// At the end of this step we need to save the variables for the next cicle iteration, so:
+
+q_hat_prev = q_hat_k1_k
+B_hat_prev = B_hat_k1
+P_prev = P_k1_k
+
+// or something like that. The important part is that the output of the filter is composed
+// by these two variables and that they are saved, so we can use them the next time
+// the filter module is called.
+
+// Another thing I would like to do a lot in this filter algorithm is to call the
+// questAttDet module with the lambda0 = q_hat_prev^t * K * q_hat_prev.
