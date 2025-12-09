@@ -36,6 +36,10 @@ Makefile
 data/
 *.log
 
+# Execution logs (tracked simulations)
+executions/
+!executions/README.md
+
 # IDE
 .vscode/
 .idea/
