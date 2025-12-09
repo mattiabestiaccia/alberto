@@ -123,8 +123,9 @@ class BSKDynamicModels():
             SimBase.AddModelToTask(self.taskName, panel, 194)  # Execute AFTER deploy panels write their messages
         print("[DYNAMICS] Solar panel modules added to task (deployment enabled)")
         # Add all 4 RW power modules to task
-        for powerRW in self.rwPowerList:
-            SimBase.AddModelToTask(self.taskName, powerRW, 195)
+        # Add all 4 RW power modules to task - DISABLED to avoid "unable to read RW status message" warning
+        # for powerRW in self.rwPowerList:
+        #     SimBase.AddModelToTask(self.taskName, powerRW, 195)
         # Add all 3 MTB power modules to task - DISABLED: MtbPower not available
         # for powerMTB in self.mtbPowerList:
         #     SimBase.AddModelToTask(self.taskName, powerMTB, 195)

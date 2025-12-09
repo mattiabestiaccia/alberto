@@ -4,7 +4,12 @@ Test incrementale simulazione EXCITE
 """
 
 import sys
+import os
 import Basilisk.utilities.macros as macros
+
+# Add project root to path
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, project_root)
 
 print("=" * 70)
 print("EXCITE Incremental Test - 1 HOUR")

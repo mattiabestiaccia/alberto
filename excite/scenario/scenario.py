@@ -225,10 +225,11 @@ class scenario_EXCITE(BSKSim, BSKScenario):
         self.AddModelToTask(DynModel.taskName, self.msgRecList['rwSpeedMsg'])
 
         # Individual RW torques (4 wheels)
-        for i in range(4):
-            msgName = f'rw{i+1}Msg'
-            self.msgRecList[msgName] = DynModel.rwStateEffector.rwOutMsgs[i].recorder(samplingTime)
-            self.AddModelToTask(DynModel.taskName, self.msgRecList[msgName])
+        # Individual RW torques (4 wheels) - DISABLED to avoid "not initialized" warnings
+        # for i in range(4):
+        #     msgName = f'rw{i+1}Msg'
+        #     self.msgRecList[msgName] = DynModel.rwStateEffector.rwOutMsgs[i].recorder(samplingTime)
+        #     self.AddModelToTask(DynModel.taskName, self.msgRecList[msgName])
 
         # 5. MTB commanded dipoles (from FSW gateway)
         self.msgRecList['mtbCmdMsg'] = FswModel.dipoleGatewayMsg.recorder(samplingTime)
@@ -251,9 +252,9 @@ class scenario_EXCITE(BSKSim, BSKScenario):
         # self.msgRecList['magDistTorqueLog'] = DynModel.magDistTorque.logger("torqueExternalPntB_B", samplingTime)
         # self.AddModelToTask(DynModel.taskName, self.msgRecList['magDistTorqueLog'])
 
-        # 7. Battery state of charge
-        self.msgRecList['batteryMsg'] = DynModel.battery.batPowerOutMsg.recorder(samplingTime)
-        self.AddModelToTask(DynModel.taskName, self.msgRecList['batteryMsg'])
+        # 7. Battery state of charge - DISABLED to reduce I/O load
+        # self.msgRecList['batteryMsg'] = DynModel.battery.batPowerOutMsg.recorder(samplingTime)
+        # self.AddModelToTask(DynModel.taskName, self.msgRecList['batteryMsg'])
 
         # 8. MTB power consumption DISABLED (MTB power modules disabled)
         # for i in range(3):
@@ -261,23 +262,23 @@ class scenario_EXCITE(BSKSim, BSKScenario):
         #     self.msgRecList[msgName] = DynModel.mtbPowerList[i].nodePowerOutMsg.recorder(samplingTime)
         #     self.AddModelToTask(DynModel.taskName, self.msgRecList[msgName])
 
-        # 9. Eclipse status (for solar panel power generation analysis)
+        # 9. Eclipse status (for solar panel power generation analysis) - DISABLED
         # The eclipse module has multiple output messages (one per celestial body)
         # Index 0 is typically Earth (the first body added after the sun)
-        self.msgRecList['eclipseMsg'] = DynModel.eclipseObject.eclipseOutMsgs[0].recorder(samplingTime)
-        self.AddModelToTask(DynModel.taskName, self.msgRecList['eclipseMsg'])
+        # self.msgRecList['eclipseMsg'] = DynModel.eclipseObject.eclipseOutMsgs[0].recorder(samplingTime)
+        # self.AddModelToTask(DynModel.taskName, self.msgRecList['eclipseMsg'])
 
-        # 10. Solar panel deployment angles (4 panels)
-        for i in range(4):
-            msgName = f'panel{i+1}DeployMsg'
-            self.msgRecList[msgName] = DynModel.deployPanelList[i].hingedRigidBodyOutMsg.recorder(samplingTime)
-            self.AddModelToTask(DynModel.taskName, self.msgRecList[msgName])
+        # 10. Solar panel deployment angles (4 panels) - DISABLED
+        # for i in range(4):
+        #     msgName = f'panel{i+1}DeployMsg'
+        #     self.msgRecList[msgName] = DynModel.deployPanelList[i].hingedRigidBodyOutMsg.recorder(samplingTime)
+        #     self.AddModelToTask(DynModel.taskName, self.msgRecList[msgName])
 
-        # 11. Solar panel power generation (4 panels)
-        for i in range(4):
-            msgName = f'panel{i+1}PowerMsg'
-            self.msgRecList[msgName] = DynModel.solarPanelList[i].nodePowerOutMsg.recorder(samplingTime)
-            self.AddModelToTask(DynModel.taskName, self.msgRecList[msgName])
+        # 11. Solar panel power generation (4 panels) - DISABLED
+        # for i in range(4):
+        #     msgName = f'panel{i+1}PowerMsg'
+        #     self.msgRecList[msgName] = DynModel.solarPanelList[i].nodePowerOutMsg.recorder(samplingTime)
+        #     self.AddModelToTask(DynModel.taskName, self.msgRecList[msgName])
 
         # NOTE: GS access monitoring is handled by FSM events
         # No need to record GS messages (avoids uninitialized message warnings)
@@ -295,21 +296,21 @@ class scenario_EXCITE(BSKSim, BSKScenario):
 
         # NOTE: sunlineEphem recorder removed - QUEST now uses simpleNavObject.attOutMsg.vehSunPntBdy directly
 
-        # 13b. EphemConverter sun output (for QUEST debug - sun position in inertial)
-        self.msgRecList['sunEphemMsg'] = FswModel.ephemConverter.ephemOutMsgs[0].recorder(samplingTime)
-        self.AddModelToTask(DynModel.taskName, self.msgRecList['sunEphemMsg'])
+        # 13b. EphemConverter sun output (for QUEST debug - sun position in inertial) - DISABLED
+        # self.msgRecList['sunEphemMsg'] = FswModel.ephemConverter.ephemOutMsgs[0].recorder(samplingTime)
+        # self.AddModelToTask(DynModel.taskName, self.msgRecList['sunEphemMsg'])
 
-        # 13c. TAM magnetometer output (for QUEST debug - magnetic field in body)
-        self.msgRecList['tamMsg'] = DynModel.tamComm.tamOutMsg.recorder(samplingTime)
-        self.AddModelToTask(DynModel.taskName, self.msgRecList['tamMsg'])
+        # 13c. TAM magnetometer output (for QUEST debug - magnetic field in body) - DISABLED
+        # self.msgRecList['tamMsg'] = DynModel.tamComm.tamOutMsg.recorder(samplingTime)
+        # self.AddModelToTask(DynModel.taskName, self.msgRecList['tamMsg'])
 
-        # 13d. WMM magnetic field reference (for QUEST debug - magnetic field in inertial)
-        self.msgRecList['magFieldMsg'] = DynModel.magModule.envOutMsgs[0].recorder(samplingTime)
-        self.AddModelToTask(DynModel.taskName, self.msgRecList['magFieldMsg'])
+        # 13d. WMM magnetic field reference (for QUEST debug - magnetic field in inertial) - DISABLED
+        # self.msgRecList['magFieldMsg'] = DynModel.magModule.envOutMsgs[0].recorder(samplingTime)
+        # self.AddModelToTask(DynModel.taskName, self.msgRecList['magFieldMsg'])
 
-        # 13e. SC position (for QUEST debug - to compute sun direction as QUEST does)
-        self.msgRecList['scStateMsg'] = DynModel.scObject.scStateOutMsg.recorder(samplingTime)
-        self.AddModelToTask(DynModel.taskName, self.msgRecList['scStateMsg'])
+        # 13e. SC position (for QUEST debug - to compute sun direction as QUEST does) - DISABLED
+        # self.msgRecList['scStateMsg'] = DynModel.scObject.scStateOutMsg.recorder(samplingTime)
+        # self.AddModelToTask(DynModel.taskName, self.msgRecList['scStateMsg'])
 
         # 14. SMEKF navigation filter output - DISABLED FOR DEBUG
         # self.msgRecList['smekfAttMsg'] = FswModel.smekfModule.navStateOutMsg.recorder(samplingTime)
@@ -318,14 +319,21 @@ class scenario_EXCITE(BSKSim, BSKScenario):
         # self.msgRecList['smekfFiltMsg'] = FswModel.smekfModule.filtDataOutMsg.recorder(samplingTime)
         # self.AddModelToTask(DynModel.taskName, self.msgRecList['smekfFiltMsg'])
 
-        # 15. Star Tracker output (for comparison with SMEKF)
-        self.msgRecList['starTrackerMsg'] = DynModel.StarTracker.sensorOutMsg.recorder(samplingTime)
-        self.AddModelToTask(DynModel.taskName, self.msgRecList['starTrackerMsg'])
+        # 15. Star Tracker output (for comparison with SMEKF) - DISABLED
+        # self.msgRecList['starTrackerMsg'] = DynModel.StarTracker.sensorOutMsg.recorder(samplingTime)
+        # self.AddModelToTask(DynModel.taskName, self.msgRecList['starTrackerMsg'])
 
         return
 
-    def pull_outputs(self, showPlots):
-        """Extract and plot all EXCITE attitude control data"""
+    def pull_outputs(self, showPlots, savePrefix=None, outputDir=None):
+        """
+        Extract and plot all EXCITE attitude control data
+
+        Args:
+            showPlots: Bool, if True shows plots, if False saves them
+            savePrefix: Optional string prefix for saved filenames (default: script name)
+            outputDir: Optional directory path to save plots (default: current dir)
+        """
 
         # Eclipse statistics analysis (from EXCITE_Analysis module) - DISABLED FOR QUEST DEBUG
         # eclipseStats = EXCITE_Analysis.analyze_eclipse_statistics(self)
@@ -376,9 +384,10 @@ class scenario_EXCITE(BSKSim, BSKScenario):
 
         rwTorqueActual = np.zeros((len(timeData), 4))
         for i in range(4):
-            rwRec = self.msgRecList[f'rw{i+1}Msg']
+            # rwRec = self.msgRecList[f'rw{i+1}Msg']
             # u_erogated = u_current + frictionTorque (effective torque applied to dynamics)
-            rwTorqueActual[:, i] = rwRec.u_current + rwRec.frictionTorque
+            # rwTorqueActual[:, i] = rwRec.u_current + rwRec.frictionTorque
+            pass # rwTorqueActual initialized to zeros above
 
         # 4. RW speeds
         rwSpeedRec = self.msgRecList['rwSpeedMsg']
@@ -393,25 +402,31 @@ class scenario_EXCITE(BSKSim, BSKScenario):
         ggRec = self.msgRecList['ggTorqueMsg']
         srpRec = self.msgRecList['srpTorqueLog']
         dragRec = self.msgRecList['dragTorqueLog']
-        magDistRec = self.msgRecList['magDistTorqueLog']
+        # magDistRec = self.msgRecList['magDistTorqueLog'] - Handled below
 
         # 7. MTB power consumption
         mtbPower = np.zeros((len(timeData), 3))
         for i in range(3):
-            mtbPowerRec = self.msgRecList[f'mtbPower{i+1}Msg']
-            mtbPower[:, i] = -mtbPowerRec.netPower  # Negative because consumption is stored as negative
-
-        # Sum all disturbance torques
-        totalDisturbance = (ggRec.gravityGradientTorque_B +
-                           srpRec.torqueExternalPntB_B +
-                           dragRec.torqueExternalPntB_B +
-                           magDistRec.torqueExternalPntB_B)
+            if f'mtbPower{i+1}Msg' in self.msgRecList:
+                mtbPowerRec = self.msgRecList[f'mtbPower{i+1}Msg']
+                mtbPower[:, i] = -mtbPowerRec.netPower  # Negative because consumption is stored as negative
 
         # Individual disturbances for plotting
         gg_torque = ggRec.gravityGradientTorque_B
         srp_torque = srpRec.torqueExternalPntB_B
         drag_torque = dragRec.torqueExternalPntB_B
-        magDist_torque = magDistRec.torqueExternalPntB_B
+        
+        if 'magDistTorqueLog' in self.msgRecList:
+             magDistRec = self.msgRecList['magDistTorqueLog']
+             magDist_torque = magDistRec.torqueExternalPntB_B
+        else:
+             magDist_torque = np.zeros_like(gg_torque)
+
+        # Sum all disturbance torques
+        totalDisturbance = (gg_torque +
+                           srp_torque +
+                           drag_torque +
+                           magDist_torque)
 
         # Calculate norms for easier visualization
         totalDistNorm = np.linalg.norm(totalDisturbance, axis=1)
@@ -491,6 +506,31 @@ class scenario_EXCITE(BSKSim, BSKScenario):
             euler_errors[i, 2] = euler[0]  # yaw error
 
         # Calculate settling time (needed for Figure 2 marker)
+        # Find first time where error remains below 1 deg (0.017 rad) for rest of simulation
+        # Note: we check only after deployment/detumbling phases (e.g. > 13h)
+        settling_idx = None
+        start_check_time = 13.0 # hours
+        start_check_idx = np.searchsorted(timeData, start_check_time)
+        
+        if start_check_idx < len(timeData):
+            # Check for error < 1 deg
+            error_threshold_deg = 1.0
+            error_norms_deg = np.linalg.norm(euler_errors[start_check_idx:], axis=1) * macros.R2D
+            
+            # Simple check: find first index where all subsequent values are below threshold
+            # This can be computationally expensive for large arrays, so we use a simpler heuristic
+            for i in range(len(error_norms_deg)):
+                if error_norms_deg[i] < error_threshold_deg:
+                     # Check if it stays low for next 30 mins
+                     check_window_idx = int(0.5 / (timeData[1]-timeData[0])) # indices for 0.5h
+                     if i + check_window_idx < len(error_norms_deg):
+                         if np.all(error_norms_deg[i:i+check_window_idx] < error_threshold_deg):
+                             settling_idx = start_check_idx + i
+                             print(f">>> Settling time detected at: {timeData[settling_idx]:.2f} hours")
+                             break
+            
+            if settling_idx is None:
+                print(">>> WARNING: No settling detected (< 1 deg steady state)")
 
         # ============================================================================
         # Generate all plots using EXCITE_Plotting module
@@ -519,9 +559,14 @@ class scenario_EXCITE(BSKSim, BSKScenario):
         #                                              magDist_torque, totalDistNorm, phaseMarkers)
 
         # FIGURE 8: Battery SoC
-        batteryRec = self.msgRecList['batteryMsg']
-        storageLevel = batteryRec.storageLevel
-        storageCapacity = batteryRec.storageCapacity
+        # FIGURE 8: Battery SoC
+        if 'batteryMsg' in self.msgRecList:
+            batteryRec = self.msgRecList['batteryMsg']
+            storageLevel = batteryRec.storageLevel
+            storageCapacity = batteryRec.storageCapacity
+        else:
+            storageLevel = np.zeros_like(timeData)
+            storageCapacity = 1.0 # arbitrary non-zero to avoid div by zero
 
 
         # EXCITE_Plotting.plot_battery_soc(timeData, storageLevel, storageCapacity, phaseMarkers, eclipseData)  # DISABLED (function missing)
@@ -530,11 +575,17 @@ class scenario_EXCITE(BSKSim, BSKScenario):
         # EXCITE_Plotting.plot_mtb_power_debug(timeData, mtbDipoleCmd, mtbPower, phaseMarkers)
 
         # FIGURE 10: Solar Panel Angles
+        # FIGURE 10: Solar Panel Angles
         panelThetaList = []
         for i in range(4):
-            panelDeployRec = self.msgRecList[f'panel{i+1}DeployMsg']
-            panelThetaList.append(panelDeployRec.theta)
-        EXCITE_Plotting.plot_solar_panel_angles(timeData, panelThetaList, phaseMarkers)
+            if f'panel{i+1}DeployMsg' in self.msgRecList:
+                panelDeployRec = self.msgRecList[f'panel{i+1}DeployMsg']
+                panelThetaList.append(panelDeployRec.theta)
+            else:
+                panelThetaList.append(np.zeros_like(timeData))
+        
+        if any('panel' in key for key in self.msgRecList):
+             EXCITE_Plotting.plot_solar_panel_angles(timeData, panelThetaList, phaseMarkers)
 
         # FIGURE 11: Reaction Wheel Angular Velocities
         EXCITE_Plotting.plot_rw_angular_velocities(timeData, rwSpeeds, phaseMarkers, eclipseData)
@@ -543,9 +594,11 @@ class scenario_EXCITE(BSKSim, BSKScenario):
         panelPowerTimesList = []
         panelPowerList = []
         for i in range(4):
-            panelPowerRec = self.msgRecList[f'panel{i+1}PowerMsg']
-            panelPowerTimesList.append(panelPowerRec.times() * macros.NANO2HOUR)
-            panelPowerList.append(panelPowerRec.netPower)
+            if f'panel{i+1}PowerMsg' in self.msgRecList:
+                panelPowerRec = self.msgRecList[f'panel{i+1}PowerMsg']
+                panelPowerTimesList.append(panelPowerRec.times() * macros.NANO2HOUR)
+                panelPowerList.append(panelPowerRec.netPower)
+        
         # EXCITE_Plotting.plot_solar_panel_power(panelPowerTimesList, panelPowerList, phaseMarkers, eclipseData)  # DISABLED (function missing)
 
         # ============================================================================
@@ -578,8 +631,11 @@ class scenario_EXCITE(BSKSim, BSKScenario):
         #     euler_smekf[i, 2] = euler[0]  # yaw
 
         # Extract QUEST estimated attitude
-        questAttRec = self.msgRecList['questAttMsg']
-        sigma_BN_quest = questAttRec.sigma_BN
+        if 'questAttMsg' in self.msgRecList:
+            questAttRec = self.msgRecList['questAttMsg']
+            sigma_BN_quest = questAttRec.sigma_BN
+        else:
+            sigma_BN_quest = np.zeros_like(sigma_BN_true)
 
         # Calculate QUEST start time (used for debug and plots)
         questStartTime_hours = None

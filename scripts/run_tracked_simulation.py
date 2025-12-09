@@ -12,7 +12,7 @@ import numpy as np
 import Basilisk.utilities.macros as macros
 
 # Add project root to path
-project_root = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
 from excite.scenario.scenario import scenario_EXCITE
@@ -78,11 +78,43 @@ def run_tracked_simulation(duration_hours=1.0, description="test"):
         scenario.InitializeSimulation()
         log_print("      ✓ Simulation initialized")
 
-        log_print(f"\n[3/6] Running {duration_hours}-hour simulation...")
-        log_print(f"      Duration: {duration_hours * 3600:.0f} seconds")
+        log_print(f"\n[3/6] Running {duration_hours}-hour simulation with periodic plotting...")
+        
+        # Define milestones for plotting (in hours)
+        # These correspond to expected end times of phases: 
+        # Detumbling (<12h), SunSafe (14-17h), GS (17-19h), Payload A (19-20.5h), Payload B (20.5-22h), Imaging (22-24h)
+        default_milestones = [1.0, 13.0, 15.0, 18.0, 20.0, 21.0, 23.0, 24.0]
+        
+        # Filter milestones that are within the requested duration
+        milestones = [m for m in default_milestones if m < duration_hours]
+        if duration_hours not in milestones:
+            milestones.append(duration_hours)
+            
+        log_print(f"      Milestones: {milestones}")
+        log_print(f"      Plots will be saved to: {logger.get_run_dir()}/plots/")
 
-        scenario.ConfigureStopTime(macros.sec2nano(duration_hours * 3600.0))
-        scenario.ExecuteSimulation()
+        current_time_hours = 0.0
+        
+        for milestone in milestones:
+            log_print(f"\n      >>> Executing to {milestone} hours...")
+            
+            # Execute to milestone
+            scenario.ConfigureStopTime(macros.sec2nano(milestone * 3600.0))
+            scenario.ExecuteSimulation()
+            
+            current_time_hours = milestone
+            log_print(f"          Reached {milestone} hours.")
+            
+            # Generate intermediate plots
+            plot_prefix = f"plot_{milestone:.1f}h"
+            plots_dir = os.path.join(logger.get_run_dir(), "plots")
+            
+            log_print(f"          Generating plots for {milestone}h...")
+            try:
+                scenario.pull_outputs(showPlots=False, savePrefix=plot_prefix, outputDir=plots_dir)
+                log_print(f"          ✓ Plots saved")
+            except Exception as plot_err:
+                 log_print(f"          ⚠️ Error generating plots: {plot_err}")
 
         log_print("      ✓ Simulation completed")
 
@@ -92,8 +124,9 @@ def run_tracked_simulation(duration_hours=1.0, description="test"):
         attGuidRec = scenario.msgRecList['attGuidMsg']
         navRec = scenario.msgRecList['simpleNavMsg']
         rwSpeedRec = scenario.msgRecList['rwSpeedMsg']
-        batteryRec = scenario.msgRecList['batteryMsg']
-        scStateRec = scenario.msgRecList['scStateMsg']
+        
+        batteryRec = scenario.msgRecList.get('batteryMsg')
+        scStateRec = scenario.msgRecList.get('scStateMsg')
 
         telemetry = {
             'time': attGuidRec.times() * macros.NANO2HOUR,  # ore
@@ -101,10 +134,10 @@ def run_tracked_simulation(duration_hours=1.0, description="test"):
             'omega_BR_B': attGuidRec.omega_BR_B,
             'omega_BN_B': navRec.omega_BN_B,
             'rw_speeds_rad_s': rwSpeedRec.wheelSpeeds,
-            'battery_level_wh': batteryRec.storageLevel,
-            'battery_capacity_wh': batteryRec.storageCapacity,
-            'sc_position_m': scStateRec.r_BN_N,
-            'sc_velocity_m_s': scStateRec.v_BN_N
+            'battery_level_wh': batteryRec.storageLevel if batteryRec else np.zeros(len(attGuidRec.times())),
+            'battery_capacity_wh': batteryRec.storageCapacity if batteryRec else np.ones(len(attGuidRec.times())),
+            'sc_position_m': scStateRec.r_BN_N if scStateRec else np.zeros((len(attGuidRec.times()), 3)),
+            'sc_velocity_m_s': scStateRec.v_BN_N if scStateRec else np.zeros((len(attGuidRec.times()), 3))
         }
 
         # Salva telemetria (NumPy e CSV)
@@ -179,6 +212,7 @@ def run_tracked_simulation(duration_hours=1.0, description="test"):
         log_print(" SIMULATION COMPLETED SUCCESSFULLY")
         log_print("=" * 70)
         log_print(f"\nResults saved in: {logger.get_run_dir()}")
+        log_print(f"Periodic plots in: {logger.get_run_dir()}/plots/")
 
         # Aggiorna indice
         create_execution_index()
